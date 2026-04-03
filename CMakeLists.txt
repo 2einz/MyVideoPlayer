@@ -52,6 +52,14 @@ qt_add_qml_module(
               src/my_video_player/assets/player_prior.svg
               src/my_video_player/assets/player_play.svg
               src/my_video_player/assets/player_fullscreen.svg
+              src/my_video_player/assets/player_close.svg
+              src/my_video_player/assets/player_minimize.svg
+              src/my_video_player/assets/player_maximize.svg
+              src/my_video_player/assets/player_resize.svg
+              src/my_video_player/assets/player_resize_black.svg
+              src/my_video_player/assets/player_close_black.svg
+              src/my_video_player/assets/player_minimize_black.svg
+              src/my_video_player/assets/player_maximize_black.svg
               src/my_video_player/assets/player_menu_black.svg
               src/my_video_player/assets/player_next_black.svg
               src/my_video_player/assets/player_pause_black.svg
