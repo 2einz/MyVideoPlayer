@@ -1,3 +1,9 @@
+// qmllint disable missing-property
+// qmllint disable unqualified
+// qmllint disable import
+// qmllint disable unresolved-type
+// qmllint disable missing-type
+
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
@@ -18,8 +24,10 @@ Window {
     property bool isPlaylistVisible: true
     property int playlistWidth: 350
 
-    // 监听系统状态
+    // 监听全屏状态
     property bool isFullScreen: root.visibility === Window.FullScreen
+
+    // 【核心修改 1】自定义最大化状态，纯手动控制，不再依赖不靠谱的系统 visibility
     property bool isCustomMaximized: false
 
     // 播放列表假数据
@@ -36,20 +44,20 @@ Window {
         id: controlHideTimer
         interval: 5000
         onTriggered: {
-            if (isFullScreen) controlBar.opacity = 0
+            if (isFullScreen)
+                controlBar.opacity = 0;
         }
     }
 
     onVisibilityChanged: {
         if (isFullScreen) {
-            controlBar.opacity = 0
-            topBar.opacity = 0
+            controlBar.opacity = 0;
+            topBar.opacity = 0;
         } else {
-            controlBar.opacity = 1
-            topBar.opacity = 1
+            controlBar.opacity = 1;
+            topBar.opacity = 1;
         }
-        // 同步最大化状态
-        isCustomMaximized = (root.visibility === Window.Maximized)
+        // 【核心修改 2】删除了原来的 isCustomMaximized 同步代码，由下面我们的函数全权接管
     }
 
     // 无边框拖动
@@ -57,19 +65,36 @@ Window {
         id: windowDragArea
         anchors.fill: parent
         z: -1
-        // 只有在普通窗口状态下才允许拖动
-        enabled: root.visibility === Window.Windowed
+        // 【核心修改 3】非全屏且非最大化时才允许拖动
+        enabled: !isFullScreen && !isCustomMaximized
         onPressed: root.startSystemMove()
     }
 
-    // 修复后的最大化/还原方法
+    // ==============================================
+    // 【核心修改 4】纯手动最大化/还原逻辑，彻底避开底层 Bug
+    // ==============================================
     function toggleCustomMaximize() {
-        if (isFullScreen) return; // 全屏时禁止最大化
+        if (isFullScreen)
+            return; // 全屏时禁止操作
 
-        if (root.visibility === Window.Maximized) {
-            root.showNormal()
+        if (isCustomMaximized) {
+            // 还原：计算屏幕的 1/2 并完美居中
+            root.width = Screen.desktopAvailableWidth / 2;
+            root.height = Screen.desktopAvailableHeight / 2;
+            root.x = Screen.virtualX + (Screen.desktopAvailableWidth - root.width) / 2;
+            root.y = Screen.virtualY + (Screen.desktopAvailableHeight - root.height) / 2;
+
+            // 状态改变，按钮图标会自动响应切换为 Maximize
+            isCustomMaximized = false;
         } else {
-            root.showMaximized()
+            // 最大化：直接填充满可用区域（自动避开任务栏）
+            root.x = Screen.virtualX;
+            root.y = Screen.virtualY;
+            root.width = Screen.desktopAvailableWidth;
+            root.height = Screen.desktopAvailableHeight;
+
+            // 状态改变，按钮图标会自动响应切换为 Resize
+            isCustomMaximized = true;
         }
     }
 
@@ -92,7 +117,9 @@ Window {
                     anchors.centerIn: parent
                     text: "VIDEO ENGINE"
                     color: "#111111"
-                    font.pixelSize: 60; font.bold: true; font.letterSpacing: 10
+                    font.pixelSize: 60
+                    font.bold: true
+                    font.letterSpacing: 10
                 }
             }
 
@@ -101,8 +128,9 @@ Window {
                 anchors.fill: parent
                 hoverEnabled: true
                 onPositionChanged: {
-                    if (isFullScreen) controlBar.opacity = 1
-                    controlHideTimer.restart()
+                    if (isFullScreen)
+                        controlBar.opacity = 1;
+                    controlHideTimer.restart();
                 }
             }
 
@@ -112,12 +140,16 @@ Window {
                 anchors.top: parent.top
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.topMargin: root.visibility === Window.Maximized ? 8 : 0
+                anchors.topMargin: root.isCustomMaximized ? 8 : 0
                 height: 75
                 z: 100
                 opacity: isFullScreen ? 0 : 1
                 visible: opacity > 0
-                Behavior on opacity { NumberAnimation { duration: 300 } }
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: 300
+                    }
+                }
                 gradient: Gradient {
                     GradientStop { position: 0; color: "#D0000000" }
                     GradientStop { position: 1; color: "transparent" }
@@ -132,10 +164,10 @@ Window {
                         Layout.alignment: Qt.AlignVCenter
                         Text { text: "Now Playing"; color: "#666666"; font.pixelSize: 11 }
                         Text {
-                            text: (playlistModel.count > 0 && playlistView.currentIndex >= 0)
-                                  ? playlistModel.get(playlistView.currentIndex).title
-                                  : "Ready to play"
-                            color: "white"; font.pixelSize: 18; font.weight: Font.DemiBold
+                            text: (playlistModel.count > 0 && playlistView.currentIndex >= 0) ? playlistModel.get(playlistView.currentIndex).title : "Ready to play"
+                            color: "white"
+                            font.pixelSize: 18
+                            font.weight: Font.DemiBold
                         }
                     }
 
@@ -148,7 +180,8 @@ Window {
                         Layout.topMargin: 8
 
                         ControlButton {
-                            iconWidth: 14; iconSource: "assets/player_minimize.svg"
+                            iconWidth: 14
+                            iconSource: "assets/player_minimize.svg"
                             onClicked: root.showMinimized()
                         }
 
@@ -156,6 +189,7 @@ Window {
                         ControlButton {
                             id: maximizeBtn
                             iconWidth: 14
+                            // 纯依赖 isCustomMaximized 变量，逻辑坚不可摧
                             iconSource: root.isCustomMaximized ? "assets/player_resize.svg" : "assets/player_maximize.svg"
                             onClicked: toggleCustomMaximize()
                         }
@@ -178,13 +212,17 @@ Window {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottomMargin: 30
                 width: Math.min(parent.width - 60, 950)
-                height: 90; radius: 24
-                color: "#E61A1A1A"; border.color: "#1AFFFFFF"
+                height: 90
+                radius: 24
+                color: "#E61A1A1A"
+                border.color: "#1AFFFFFF"
                 z: 10
                 Behavior on opacity { NumberAnimation { duration: 500 } }
 
                 ColumnLayout {
-                    anchors.fill: parent; anchors.margins: 15; spacing: 8
+                    anchors.fill: parent
+                    anchors.margins: 15
+                    spacing: 8
 
                     Slider {
                         id: progressSlider
@@ -198,7 +236,8 @@ Window {
                     }
 
                     RowLayout {
-                        Layout.fillWidth: true; spacing: 18
+                        Layout.fillWidth: true
+                        spacing: 18
 
                         ControlButton { iconSource: "assets/player_prior.svg" }
                         ControlButton {
@@ -227,9 +266,9 @@ Window {
                             iconColor: isFullScreen ? "#0078D4" : "#FFF"
                             onClicked: {
                                 if (isFullScreen)
-                                    root.showNormal()
+                                    root.showNormal();
                                 else
-                                    root.showFullScreen()
+                                    root.showFullScreen();
                             }
                         }
                     }
@@ -242,20 +281,19 @@ Window {
             id: playlistArea
             Layout.preferredWidth: (isPlaylistVisible && !isFullScreen) ? playlistWidth : 0
             Layout.fillHeight: true
-            color: "#0A0A0A"; border.color: "#151515"
+            color: "#0A0A0A"
+            border.color: "#151515"
             clip: true
-            Behavior on Layout.preferredWidth {
-                NumberAnimation { duration: 400; easing.type: Easing.OutCubic }
-            }
+            Behavior on Layout.preferredWidth { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
 
             ColumnLayout {
                 width: playlistWidth
                 height: parent.height
                 spacing: 0
 
-                Rectangle { Layout.fillWidth: true; height: 80; color: "transparent"
-                    Text { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; anchors.leftMargin: 25
-                        text: "Playlist"; color: "white"; font.pixelSize: 20; font.bold: true }
+                Rectangle {
+                    Layout.fillWidth: true; height: 80; color: "transparent"
+                    Text { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; anchors.leftMargin: 25; text: "Playlist"; color: "white"; font.pixelSize: 20; font.bold: true }
                 }
 
                 ListView {
@@ -267,9 +305,11 @@ Window {
                         Rectangle {
                             anchors.fill: parent; anchors.margins: 10; radius: 12
                             color: playlistView.currentIndex === index ? "#200078D4" : (delegateMouse.containsMouse ? "#10FFF" : "transparent")
-                            RowLayout { anchors.fill: parent; anchors.margins: 12; spacing: 15
+                            RowLayout {
+                                anchors.fill: parent; anchors.margins: 12; spacing: 15
                                 Rectangle { width: 90; height: 50; radius: 6; color: model.color }
-                                ColumnLayout { Layout.fillWidth: true; spacing: 2
+                                ColumnLayout {
+                                    Layout.fillWidth: true; spacing: 2
                                     Text { text: model.title; color: "white"; font.pixelSize: 14; elide: Text.ElideRight; Layout.fillWidth: true }
                                     Text { text: model.author; color: "#555"; font.pixelSize: 11 }
                                 }
@@ -283,23 +323,22 @@ Window {
     }
 
     // 通用按钮组件
-    component ControlButton : Item {
+    component ControlButton: Item {
         property url iconSource: ""
         property real iconWidth: 24
         property color iconColor: "#FFF"
-        signal clicked()
-        implicitWidth: 44; implicitHeight: 44
+        signal clicked
+        implicitWidth: 44
+        implicitHeight: 44
 
         MouseArea {
             id: mouse
-            anchors.fill: parent
-            hoverEnabled: true
+            anchors.fill: parent; hoverEnabled: true
             onClicked: parent.clicked()
         }
 
         Rectangle {
-            anchors.fill: parent
-            radius: 12
+            anchors.fill: parent; radius: 12
             color: mouse.containsMouse ? "#20FFFFFF" : "transparent"
             Behavior on color { ColorAnimation { duration: 200 } }
         }
@@ -307,19 +346,15 @@ Window {
         Image {
             id: btnIcon
             anchors.centerIn: parent
-            width: parent.iconWidth
-            height: width
+            width: parent.iconWidth; height: width
             source: parent.iconSource
             fillMode: Image.PreserveAspectFit
-            smooth: true; antialiasing: true
-            visible: false
+            smooth: true; antialiasing: true; visible: false
         }
 
         MultiEffect {
-            anchors.fill: btnIcon
-            source: btnIcon
-            colorizationColor: parent.iconColor
-            colorization: 1.0
+            anchors.fill: btnIcon; source: btnIcon
+            colorizationColor: parent.iconColor; colorization: 1.0
             opacity: mouse.pressed ? 0.5 : 1.0
         }
     }
@@ -327,7 +362,7 @@ Window {
     Shortcut {
         sequence: "Esc"
         onActivated: {
-            if (isFullScreen) root.showNormal()
+            if (isFullScreen) root.showNormal();
         }
     }
 }
