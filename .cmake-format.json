@@ -1,0 +1,32 @@
+{
+  "parse": {
+    "additional_commands": {
+      "qt_add_qml_module": {
+        "pargs": 1,
+        "kwargs": {
+          "URI": 1,
+          "VERSION": 1,
+          "RESOURCE_PREFIX": 1,
+          "QML_FILES": "+",
+          "SOURCES": "+"
+        }
+      }
+    }
+  },
+  "format": {
+    "line_width": 100,
+    "tab_size": 4,
+    "command_case": "lower",
+    "dangle_parens": true,
+    "max_pargs_hwrap": 2,
+    "separate_ctrl_name_with_space": false,
+    "separate_fn_name_with_space": false,
+    "always_wrap": [
+      "target_link_libraries",
+      "target_sources"
+    ]
+  },
+  "markup": {
+    "enable_markup": false
+  }
+}

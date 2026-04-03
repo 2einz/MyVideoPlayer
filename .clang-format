@@ -1,0 +1,48 @@
+Language: Cpp
+BasedOnStyle: LLVM
+
+# 访问修饰符（public/private）的缩进。-4 表示与 class 关键字对齐
+AccessModifierOffset: -4
+
+# 缩进宽度为 4
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+# 现代显示器建议 100-120
+ColumnLimit: 120
+
+# 指针对齐方式
+PointerAlignment: Left
+
+# 标准
+Standard: c++17
+
+# 括号内换行对齐
+AlignAfterOpenBracket: Align
+
+# 参数打包策略：false 会让长参数列表一个一行，更整洁
+BinPackParameters: false
+
+# 模板声明后是否换行
+AlwaysBreakTemplateDeclarations: Yes
+
+# 构造函数初始化列表在冒号前换行
+BreakConstructorInitializers: BeforeColon
+
+# 命名空间后的注释
+FixNamespaceComments: true
+
+# 包含文件排序（设为 Never 避免破坏特定的 Qt 包含顺序）
+SortIncludes: Never
+
+# 针对 Qt 信号槽宏的特殊处理
+# 确保 signals: slots: 等关键字不被视为普通标签
+WhitespaceSensitiveMacros: [ 'Q_OBJECT', 'signals', 'slots', 'Q_SIGNALS', 'Q_SLOTS' ]
+
+# 允许在简单的函数体（如 getter）写在一行
+AllowShortFunctionsOnASingleLine: Inline
+
+# 在空行、大括号等位置的优化
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
