@@ -42,8 +42,8 @@ signals:
 private:
     bool is_playing_ = false; // 是否播放
     double progress_ = 0.0;   // 播放进度
-    QString current_time_ = "00:00";
-    QString total_time_ = "00:00";
+    QString current_time_ = "00:00:00";
+    QString total_time_ = "00:00:00";
     QPointer<QVideoSink> video_sink_;
 };
 } // namespace video_player

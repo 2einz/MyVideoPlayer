@@ -35,7 +35,7 @@ set(PROJECT_SOURCES
 # 在 Qt 6 中，推荐使用 qt_add_qml_module
 qt_add_executable(
     ${PROJECT_NAME}
-    WIN32
+    # WIN32
     ${PROJECT_SOURCES}
 )
 
@@ -46,6 +46,18 @@ qt_add_qml_module(
     URI my.video.player
     VERSION 1.0
     QML_FILES src/my_video_player/main.qml
+    RESOURCES src/my_video_player/assets/player_menu.svg
+              src/my_video_player/assets/player_next.svg
+              src/my_video_player/assets/player_pause.svg
+              src/my_video_player/assets/player_prior.svg
+              src/my_video_player/assets/player_play.svg
+              src/my_video_player/assets/player_fullscreen.svg
+              src/my_video_player/assets/player_menu_black.svg
+              src/my_video_player/assets/player_next_black.svg
+              src/my_video_player/assets/player_pause_black.svg
+              src/my_video_player/assets/player_prior_black.svg
+              src/my_video_player/assets/player_play_black.svg
+              src/my_video_player/assets/player_fullscreen_black.svg
 )
 
 # 在目标创建之后，设置头文件包含路径 (Google 风格)

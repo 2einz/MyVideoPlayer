@@ -8,7 +8,7 @@
           "VERSION": 1,
           "RESOURCE_PREFIX": 1,
           "QML_FILES": "+",
-          "SOURCES": "+"
+          "RESOURCES": "+"
         }
       }
     }
@@ -19,6 +19,7 @@
     "command_case": "lower",
     "dangle_parens": true,
     "max_pargs_hwrap": 2,
+    "max_subargs_hwrap": 1,
     "separate_ctrl_name_with_space": false,
     "separate_fn_name_with_space": false,
     "always_wrap": [
