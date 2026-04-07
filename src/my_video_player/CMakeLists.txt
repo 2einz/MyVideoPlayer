@@ -1,11 +1,15 @@
+set(ENGINE_DIR player/engine)
+
 set(PROJECT_SOURCES
     main.cc
     controller/controller.cc
     controller/controller.h
     player/player.cc
     player/player.h
-    player/engine/demux/demuxer.cc
-    player/engine/demux/demuxer.h
+    ${ENGINE_DIR}/common/error_util.h
+    ${ENGINE_DIR}/common/ffmpeg_raii.h
+    ${ENGINE_DIR}/demux/demuxer.cc
+    ${ENGINE_DIR}/demux/demuxer.h
 )
 
 # 生成可执行程序
