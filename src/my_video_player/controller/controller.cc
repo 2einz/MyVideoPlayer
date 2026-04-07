@@ -2,7 +2,7 @@
 
 #include <QDebug>
 
-namespace video_player {
+namespace my_video_player {
 Controller::Controller(QObject* parent) : QObject(parent) {}
 
 void Controller::TogglePlay() {
@@ -30,4 +30,4 @@ void Controller::SetVideoSink(QVideoSink* sink) {
         qDebug() << "Video Sink has been registered\n";
     }
 }
-} // namespace video_player
+} // namespace my_video_player

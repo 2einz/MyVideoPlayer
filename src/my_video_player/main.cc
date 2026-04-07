@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
     //     qDebug() << it.next();
     // }
 
-    video_player::Controller controller;
+    my_video_player::Controller controller;
 
     QQmlApplicationEngine engine;
 

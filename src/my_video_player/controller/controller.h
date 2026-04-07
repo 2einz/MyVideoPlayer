@@ -1,5 +1,5 @@
-#ifndef SRC_MY_VIDEO_PLAYER_CONTROLLER_CONTROLLER_H_
-#define SRC_MY_VIDEO_PLAYER_CONTROLLER_CONTROLLER_H_
+#ifndef MY_VIDEO_PLAYER_CONTROLLER_CONTROLLER_H_
+#define MY_VIDEO_PLAYER_CONTROLLER_CONTROLLER_H_
 
 #include <QObject>
 #include <QString>
@@ -7,7 +7,7 @@
 #include <QVideoSink>
 #include <QPointer>
 
-namespace video_player {
+namespace my_video_player {
 class Controller : public QObject {
     Q_OBJECT
 
@@ -46,6 +46,6 @@ private:
     QString total_time_ = "00:00:00";
     QPointer<QVideoSink> video_sink_;
 };
-} // namespace video_player
+} // namespace my_video_player
 
-#endif // SRC_MY_VIDEO_PLAYER_CONTROLLER_CONTROLLER_H_
+#endif // MY_VIDEO_PLAYER_CONTROLLER_CONTROLLER_H_
