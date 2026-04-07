@@ -33,10 +33,30 @@ Window {
     // 播放列表假数据
     ListModel {
         id: playlistModel
-        ListElement { title: "01. 4K 自然风光演示"; duration: "03:45"; author: "Nature"; color: "#1a3a3a" }
-        ListElement { title: "02. FFmpeg 底层解码原理"; duration: "12:20"; author: "TechDev"; color: "#3a1a1a" }
-        ListElement { title: "03. QML 粒子特效动画"; duration: "05:10"; author: "Design"; color: "#1a1a3a" }
-        ListElement { title: "04. 极地冰川纪录片"; duration: "45:00"; author: "Discovery"; color: "#2a2a2a" }
+        ListElement {
+            title: "01. 4K 自然风光演示"
+            duration: "03:45"
+            author: "Nature"
+            color: "#1a3a3a"
+        }
+        ListElement {
+            title: "02. FFmpeg 底层解码原理"
+            duration: "12:20"
+            author: "TechDev"
+            color: "#3a1a1a"
+        }
+        ListElement {
+            title: "03. QML 粒子特效动画"
+            duration: "05:10"
+            author: "Design"
+            color: "#1a1a3a"
+        }
+        ListElement {
+            title: "04. 极地冰川纪录片"
+            duration: "45:00"
+            author: "Discovery"
+            color: "#2a2a2a"
+        }
     }
 
     // 自动隐藏控制栏
@@ -50,14 +70,13 @@ Window {
     }
 
     onVisibilityChanged: {
-        if (isFullScreen) {
-            controlBar.opacity = 0;
-            topBar.opacity = 0;
-        } else {
+        if (!isFullScreen) {
             controlBar.opacity = 1;
             topBar.opacity = 1;
+        } else {
+            controlBar.opacity = 0;
+            topBar.opacity = 0;
         }
-        // 【核心修改 2】删除了原来的 isCustomMaximized 同步代码，由下面我们的函数全权接管
     }
 
     // 无边框拖动
@@ -128,9 +147,10 @@ Window {
                 anchors.fill: parent
                 hoverEnabled: true
                 onPositionChanged: {
-                    if (isFullScreen)
+                    if (isFullScreen) {
                         controlBar.opacity = 1;
-                    controlHideTimer.restart();
+                        controlHideTimer.restart();
+                    }
                 }
             }
 
@@ -151,8 +171,14 @@ Window {
                     }
                 }
                 gradient: Gradient {
-                    GradientStop { position: 0; color: "#D0000000" }
-                    GradientStop { position: 1; color: "transparent" }
+                    GradientStop {
+                        position: 0
+                        color: "#D0000000"
+                    }
+                    GradientStop {
+                        position: 1
+                        color: "transparent"
+                    }
                 }
 
                 RowLayout {
@@ -162,7 +188,11 @@ Window {
 
                     Column {
                         Layout.alignment: Qt.AlignVCenter
-                        Text { text: "Now Playing"; color: "#666666"; font.pixelSize: 11 }
+                        Text {
+                            text: "Now Playing"
+                            color: "#666666"
+                            font.pixelSize: 11
+                        }
                         Text {
                             text: (playlistModel.count > 0 && playlistView.currentIndex >= 0) ? playlistModel.get(playlistView.currentIndex).title : "Ready to play"
                             color: "white"
@@ -171,7 +201,9 @@ Window {
                         }
                     }
 
-                    Item { Layout.fillWidth: true }
+                    Item {
+                        Layout.fillWidth: true
+                    }
 
                     // 窗口控制按钮
                     Row {
@@ -196,8 +228,8 @@ Window {
 
                         // 关闭按钮
                         ControlButton {
-                            iconWidth: 12.6
-                            iconColor: "#FF5555"
+                            iconWidth: 10.6
+                            // iconColor: "#FF5555"
                             iconSource: "assets/player_close.svg"
                             onClicked: Qt.quit()
                         }
@@ -217,7 +249,11 @@ Window {
                 color: "#E61A1A1A"
                 border.color: "#1AFFFFFF"
                 z: 10
-                Behavior on opacity { NumberAnimation { duration: 500 } }
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: 500
+                    }
+                }
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -229,31 +265,52 @@ Window {
                         Layout.fillWidth: true
                         value: (typeof playerCtrl !== "undefined") ? playerCtrl.progress : 0.4
                         background: Rectangle {
-                            height: 4; radius: 2; color: "#22FFFFFF"
-                            Rectangle { width: progressSlider.visualPosition * parent.width; height: parent.height; color: "#0078D4"; radius: 2 }
+                            height: 4
+                            radius: 2
+                            color: "#22FFFFFF"
+                            Rectangle {
+                                width: progressSlider.visualPosition * parent.width
+                                height: parent.height
+                                color: "#0078D4"
+                                radius: 2
+                            }
                         }
-                        handle: Rectangle { width: 14; height: 14; radius: 7; color: "white" }
+                        handle: Rectangle {
+                            width: 14
+                            height: 14
+                            radius: 7
+                            color: "white"
+                        }
                     }
 
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 18
 
-                        ControlButton { iconSource: "assets/player_prior.svg" }
+                        ControlButton {
+                            iconSource: "assets/player_prior.svg"
+                        }
                         ControlButton {
                             id: playBtn
                             iconSource: (typeof playerCtrl !== "undefined" && playerCtrl.isPlaying) ? "assets/player_pause.svg" : "assets/player_play.svg"
                             iconWidth: 32
-                            onClicked: if (typeof playerCtrl !== "undefined") playerCtrl.togglePlay()
+                            onClicked: if (typeof playerCtrl !== "undefined")
+                                playerCtrl.togglePlay()
                         }
-                        ControlButton { iconSource: "assets/player_next.svg" }
+                        ControlButton {
+                            iconSource: "assets/player_next.svg"
+                        }
 
                         Text {
                             text: (typeof playerCtrl !== "undefined") ? playerCtrl.currentTime + " / " + playerCtrl.totalTime : "03:45 / 12:00"
-                            color: "#888"; font.pixelSize: 12; font.family: "Monospace"
+                            color: "#888"
+                            font.pixelSize: 12
+                            font.family: "Monospace"
                         }
 
-                        Item { Layout.fillWidth: true }
+                        Item {
+                            Layout.fillWidth: true
+                        }
 
                         ControlButton {
                             iconSource: "assets/player_menu.svg"
@@ -265,10 +322,16 @@ Window {
                             iconSource: "assets/player_fullscreen.svg"
                             iconColor: isFullScreen ? "#0078D4" : "#FFF"
                             onClicked: {
-                                if (isFullScreen)
+                                if (isFullScreen) {
                                     root.showNormal();
-                                else
+                                    // 强制恢复 UI
+                                    // isPlaylistVisible = true;
+                                    controlBar.opacity = 1;
+                                    topBar.opacity = 1;
+                                } else {
                                     root.showFullScreen();
+                                    isPlaylistVisible = false;
+                                }
                             }
                         }
                     }
@@ -284,7 +347,12 @@ Window {
             color: "#0A0A0A"
             border.color: "#151515"
             clip: true
-            Behavior on Layout.preferredWidth { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+            Behavior on Layout.preferredWidth {
+                NumberAnimation {
+                    duration: 400
+                    easing.type: Easing.OutCubic
+                }
+            }
 
             ColumnLayout {
                 width: playlistWidth
@@ -292,30 +360,69 @@ Window {
                 spacing: 0
 
                 Rectangle {
-                    Layout.fillWidth: true; height: 80; color: "transparent"
-                    Text { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; anchors.leftMargin: 25; text: "Playlist"; color: "white"; font.pixelSize: 20; font.bold: true }
+                    Layout.fillWidth: true
+                    height: 80
+                    color: "transparent"
+                    Text {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.leftMargin: 25
+                        text: "Playlist"
+                        color: "white"
+                        font.pixelSize: 20
+                        font.bold: true
+                    }
                 }
 
                 ListView {
                     id: playlistView
-                    Layout.fillWidth: true; Layout.fillHeight: true
-                    model: playlistModel; clip: true; currentIndex: 0
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    model: playlistModel
+                    clip: true
+                    currentIndex: 0
                     delegate: Item {
-                        width: playlistWidth; height: 95
+                        width: playlistWidth
+                        height: 95
                         Rectangle {
-                            anchors.fill: parent; anchors.margins: 10; radius: 12
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            radius: 12
                             color: playlistView.currentIndex === index ? "#200078D4" : (delegateMouse.containsMouse ? "#10FFF" : "transparent")
                             RowLayout {
-                                anchors.fill: parent; anchors.margins: 12; spacing: 15
-                                Rectangle { width: 90; height: 50; radius: 6; color: model.color }
+                                anchors.fill: parent
+                                anchors.margins: 12
+                                spacing: 15
+                                Rectangle {
+                                    width: 90
+                                    height: 50
+                                    radius: 6
+                                    color: model.color
+                                }
                                 ColumnLayout {
-                                    Layout.fillWidth: true; spacing: 2
-                                    Text { text: model.title; color: "white"; font.pixelSize: 14; elide: Text.ElideRight; Layout.fillWidth: true }
-                                    Text { text: model.author; color: "#555"; font.pixelSize: 11 }
+                                    Layout.fillWidth: true
+                                    spacing: 2
+                                    Text {
+                                        text: model.title
+                                        color: "white"
+                                        font.pixelSize: 14
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
+                                    }
+                                    Text {
+                                        text: model.author
+                                        color: "#555"
+                                        font.pixelSize: 11
+                                    }
                                 }
                             }
                         }
-                        MouseArea { id: delegateMouse; anchors.fill: parent; hoverEnabled: true; onClicked: playlistView.currentIndex = index }
+                        MouseArea {
+                            id: delegateMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: playlistView.currentIndex = index
+                        }
                     }
                 }
             }
@@ -333,28 +440,39 @@ Window {
 
         MouseArea {
             id: mouse
-            anchors.fill: parent; hoverEnabled: true
+            anchors.fill: parent
+            hoverEnabled: true
             onClicked: parent.clicked()
         }
 
         Rectangle {
-            anchors.fill: parent; radius: 12
+            anchors.fill: parent
+            radius: 12
             color: mouse.containsMouse ? "#20FFFFFF" : "transparent"
-            Behavior on color { ColorAnimation { duration: 200 } }
+            Behavior on color {
+                ColorAnimation {
+                    duration: 200
+                }
+            }
         }
 
         Image {
             id: btnIcon
             anchors.centerIn: parent
-            width: parent.iconWidth; height: width
+            width: parent.iconWidth
+            height: width
             source: parent.iconSource
             fillMode: Image.PreserveAspectFit
-            smooth: true; antialiasing: true; visible: false
+            smooth: true
+            antialiasing: true
+            visible: false
         }
 
         MultiEffect {
-            anchors.fill: btnIcon; source: btnIcon
-            colorizationColor: parent.iconColor; colorization: 1.0
+            anchors.fill: btnIcon
+            source: btnIcon
+            colorizationColor: parent.iconColor
+            colorization: 1.0
             opacity: mouse.pressed ? 0.5 : 1.0
         }
     }
@@ -362,7 +480,9 @@ Window {
     Shortcut {
         sequence: "Esc"
         onActivated: {
-            if (isFullScreen) root.showNormal();
+            if (isFullScreen)
+                root.showNormal();
         }
     }
 }
+
