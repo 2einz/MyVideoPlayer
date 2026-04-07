@@ -1,5 +1,5 @@
-#ifndef SRC_MY_VIDEO_PLAYER_CONTROLLER_H_
-#define SRC_MY_VIDEO_PLAYER_CONTROLLER_H_
+#ifndef SRC_MY_VIDEO_PLAYER_CONTROLLER_CONTROLLER_H_
+#define SRC_MY_VIDEO_PLAYER_CONTROLLER_CONTROLLER_H_
 
 #include <QObject>
 #include <QString>
@@ -48,4 +48,4 @@ private:
 };
 } // namespace video_player
 
-#endif // SRC_MY_VIDEO_PLAYER_CONTROLLER_H_
+#endif // SRC_MY_VIDEO_PLAYER_CONTROLLER_CONTROLLER_H_

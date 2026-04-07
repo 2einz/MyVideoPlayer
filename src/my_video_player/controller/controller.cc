@@ -1,4 +1,4 @@
-#include "src/my_video_player/controller.h"
+#include "controller/controller.h"
 
 #include <QDebug>
 

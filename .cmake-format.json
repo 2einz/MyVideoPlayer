@@ -10,6 +10,18 @@
           "QML_FILES": "+",
           "RESOURCES": "+"
         }
+      },
+      "find_package": {
+        "pargs": 1,
+        "flags": ["REQUIRED", "QUIET", "MODULE", "CONFIG"],
+        "kwargs": {
+          "COMPONENTS": "+",
+          "OPTIONAL_COMPONENTS": "+"
+        }
+      },
+      "qt_add_executable": {
+        "pargs": 1,
+        "flags": ["WIN32", "MACOSX_BUNDLE"]
       }
     }
   },
@@ -19,12 +31,13 @@
     "command_case": "lower",
     "dangle_parens": true,
     "max_pargs_hwrap": 2,
-    "max_subargs_hwrap": 1,
     "separate_ctrl_name_with_space": false,
     "separate_fn_name_with_space": false,
     "always_wrap": [
       "target_link_libraries",
-      "target_sources"
+      "target_sources",
+      "target_include_directories",
+      "find_package"
     ]
   },
   "markup": {

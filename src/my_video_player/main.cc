@@ -6,7 +6,7 @@
 #include <QDirIterator>
 #include <QDebug>
 
-#include "src/my_video_player/controller.h"
+#include "controller/controller.h"
 
 // 必须添加这一行此时使用 _s 就不会报错了
 using namespace Qt::StringLiterals;
@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
 
     engine.rootContext()->setContextProperty("playerCtrl", &controller);
 
-    const QUrl url(u"qrc:/my/video/player/src/my_video_player/main.qml"_s);
+    const QUrl url(u"qrc:/my/video/player/ui/main.qml"_s);
 
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreated, &app,

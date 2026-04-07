@@ -1,57 +1,93 @@
-# 阶段 1：搭建 Qt 基础界面（1–3 天）
+✅ 打开视频文件（FFmpeg）
+✅ 解码视频帧
+✅ 转 RGB
+✅ 显示到 Qt（哪怕很卡）
+✅ 加线程
+✅ 加播放/暂停
+✅ 加音频
+✅ 做同步
 
-新建 Qt Widgets 项目，做无边框主窗口
-实现：标题栏（最小化 / 最大化 / 关闭）、播放控制条（按钮 + 滑块）、播放列表
-掌握：Qt 信号槽、自定义控件、鼠标拖动窗口、样式表 QSS
-
-# 阶段 2：实现基础交互逻辑（2–5 天）
-
-打开文件对话框、添加文件到列表、双击播放
-播放 / 暂停 / 停止、进度条拖动、音量滑块、全屏切换
-键盘快捷键（空格、回车、方向键）
-
-# 阶段 3：接入 FFmpeg 做音视频解码（3–7 天）
-
-编译 / 配置 FFmpeg 环境
-实现：打开文件 → 解封装 → 解码视频帧 → 解码音频帧
-掌握：AVFormatContext、AVCodecContext、AVPacket、AVFrame
-
-# 阶段 4：用 SDL 做渲染与播放（3–7 天）
-
-SDL 初始化窗口、渲染器、音频设备
-视频：YUV 转纹理 → 渲染到 Qt 控件
-音频：重采样 → 播放
-音视频同步（以音频为基准）
-
-# 阶段 5：完善体验（2–5 天）
-
-播放记忆、列表保存、画面比例自适应、鼠标隐藏、右键菜单
-
+硬解码（NVDEC / VAAPI）
+GPU 渲染（OpenGL / Vulkan）
+音视频同步（AVSync）
+播放列表（你已经有UI了）
+字幕（ASS）
 
 
 ```text
 my_video_player/
-├── CMakeLists.txt              # 总构建脚本
-├── .cmake-format.json          # 格式化配置
-├── bin/                        # 存放生成的 exe 和 dll (运行环境)
-├── build/                      # 编译中间产物
-├── src/
-│   └── my_video_player/        # 主命名空间
-│       ├── main.cc             # 程序入口，初始化 QML 引擎
-│       ├── player_controller.cc # 业务逻辑：播放、暂停、进度条逻辑
-│       ├── player_controller.h
-│       ├── main.qml            # UI 界面：QML 描述
-│       └── engine/             # 【核心】FFmpeg 底层封装
-│           ├── video_decoder.cc # 视频解码、颜色转换
-│           ├── video_decoder.h
-│           ├── audio_decoder.cc # 音频解码、重采样 (进阶)
-│           ├── audio_decoder.h
-│           ├── packet_queue.h   # 缓冲队列 (解复用后的数据包)
-│           └── frame_queue.h    # 缓冲队列 (解码后的原始帧)
-└── third_party/                # 存放 FFmpeg 的头文件和库
-    └── ffmpeg/
+├── CMakeLists.txt                  # 构建入口
+├── .cmake-format.json              # 格式化 CMake
+├── .clang-format                   # 格式化 C++
+├── bin/                            # 最终生成产物 (.exe, .dll)
+├── build/                          # 临时构建目录
+├── third_party/                    # 第三方依赖
+│   └── ffmpeg/                     # FFmpeg SDK (include/lib/bin)
+├── src/                            # 源码根目录
+│   └── my_video_player/            # 顶级命名空间 (Include 路径起点)
+│       ├── main.cc                 # 程序入口
+│       ├── controller/             # 【控制层】QML 交互桥梁
+│       │   ├── player_controller.h
+│       │   └── player_controller.cc
+│       ├── ui/                     # 【视图层】QML 资源
+│       │   ├── assets/             # 图片、图标 (.svg, .png)
+│       │   └── main.qml            # 主界面
+│       └── player/                 # 【业务层】逻辑中枢
+│           ├── player.h            # 暴露给 Controller 的接口
+│           ├── player.cc           # 组合 Engine 各个模块
+│           └── engine/             # 【引擎层】FFmpeg 核心实现
+│               ├── common/         # 通用工具
+│               │   ├── ffmpeg_raii.h   # 内存安全包装
+│               │   ├── engine_types.h  # 枚举、常量、状态定义
+│               │   └── error_util.h    # 错误处理
+│               ├── demux/          # 解封装
+│               │   ├── demuxer.h
+│               │   └── demuxer.cc
+│               ├── decode/         # 解码 (音视频分离)
+│               │   ├── video_decoder.h
+│               │   ├── video_decoder.cc
+│               │   ├── audio_decoder.h
+│               │   └── audio_decoder.cc
+│               ├── buffer/         # 缓冲 (同步/阻塞队列)
+│               │   ├── packet_queue.h
+│               │   ├── packet_queue.cc
+│               │   ├── frame_queue.h
+│               │   └── frame_queue.cc
+│               ├── convert/        # 格式转换 (Sws/Swr)
+│               │   ├── video_converter.h
+│               │   ├── video_converter.cc
+│               │   ├── audio_resampler.h
+│               │   └── audio_resampler.cc
+│               ├── sync/           # 同步控制
+│               │   ├── av_clock.h  # 时间戳同步核心
+│               │   └── av_clock.cc
+│               └── render/         # 渲染适配 (Qt 专用)
+│                   ├── video_renderer.h # 封装 QVideoSink
+│                   ├── video_renderer.cc
+│                   ├── audio_renderer.h # 封装 QAudioSink
+│                   └── audio_renderer.cc
 ```
 
+用户操作：ui/main.qml
+→
+→
+ controller/player_controller.cc
+业务调度：controller
+→
+→
+ player/player.cc (控制 Start/Stop/Seek)
+数据流向：
+engine/demux/ (读取文件)
+→
+→
+ buffer/packet_queue
+engine/decode/ (多线程解码)
+→
+→
+ buffer/frame_queue
+engine/convert/ (颜色/采样率转换)
+engine/sync/ (PTS 校准)
+engine/render/ (转换为 Qt 帧并推送给 QVideoSink)
 
 
 ### 架构设计：三层模型
