@@ -40,15 +40,15 @@ int Demuxer::ReadPacket(PacketItem* packet_item) {
         return AVERROR(EINVAL);
 
     // 复用AVPacket
-    if (!packet_item->packet_) {
-        packet_item->packet_ = MakeAvPacketPtr();
+    if (!packet_item->packet) {
+        packet_item->packet = MakeAvPacketPtr();
     } else {
-        ResetPacket(packet_item->packet_);
+        ResetPacket(packet_item->packet);
     }
 
-    int ret = av_read_frame(format_ctx_.get(), packet_item->packet_.get());
+    int ret = av_read_frame(format_ctx_.get(), packet_item->packet.get());
     if (ret >= 0) {
-        packet_item->stream_index_ = packet_item->packet_->stream_index;
+        packet_item->stream_index = packet_item->packet->stream_index;
     }
 
     return ret;

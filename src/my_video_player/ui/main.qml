@@ -294,8 +294,10 @@ Window {
                             id: playBtn
                             iconSource: (typeof playerCtrl !== "undefined" && playerCtrl.isPlaying) ? "assets/player_pause.svg" : "assets/player_play.svg"
                             iconWidth: 32
-                            onClicked: if (typeof playerCtrl !== "undefined")
-                                playerCtrl.togglePlay()
+                            onClicked: if (typeof playerCtrl !== "undefined") {
+                                playerCtrl.TogglePlay();
+                                playerCtrl.OpenFile("D:/Workspace/AudioVideo/test_media_files/trailer/trailer.mp4");
+                            }
                         }
                         ControlButton {
                             iconSource: "assets/player_next.svg"
@@ -485,4 +487,3 @@ Window {
         }
     }
 }
-

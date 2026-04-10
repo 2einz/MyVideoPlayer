@@ -6,10 +6,15 @@ set(PROJECT_SOURCES
     controller/controller.h
     player/player.cc
     player/player.h
+    ${ENGINE_DIR}/media_state.hpp
     ${ENGINE_DIR}/common/error_util.h
     ${ENGINE_DIR}/common/ffmpeg_raii.h
     ${ENGINE_DIR}/demux/demuxer.cc
     ${ENGINE_DIR}/demux/demuxer.h
+    ${ENGINE_DIR}/decode/video_decoder.h
+    ${ENGINE_DIR}/decode/video_decoder.cc
+    ${ENGINE_DIR}/decode/audio_decoder.h
+    ${ENGINE_DIR}/decode/audio_decoder.cc
 )
 
 # 生成可执行程序

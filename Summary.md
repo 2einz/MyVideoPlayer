@@ -26,16 +26,111 @@ D:\Qt\6.11.0\msvc2022_64\bin\windeployqt.exe Project.exe
 
 本章节记录 FFmpeg API 调用过程中的核心细节与坑点。
 
-### 2.1 解码核心流程图解
+这一章节是 FFmpeg 开发的核心逻辑。为了让它更像一份专业的**技术手册**，我将其美化为：**流程图示 -> 步骤分解 -> 核心代码 -> 数据产出** 的逻辑结构。
 
-FFmpeg 的解码过程遵循严格的流水线模式。以下流程是开发音视频程序的基础：
+---
 
-| 宏观流程 (Logic Flow)                                        | 详细 API 调用 (API Pipeline)                                 |
+### 2.1 解码核心流程全解析
+
+FFmpeg 的解码过程遵循严格的流水线模式。理解以下流程是开发音视频程序的基础：
+
+#### 2.1.1 流程图示
+| 宏观逻辑 (Logic Flow)                                        | 详细 API 调用 (API Pipeline)                                 |
 | :----------------------------------------------------------- | :----------------------------------------------------------- |
 | ![流程1](D:\Workspace\AudioVideo\MyVideoPlayer\img\ffmpeg-decode-flow.jpg) | ![流程2](D:\Workspace\AudioVideo\MyVideoPlayer\img\ffmpeg-decoding.png) |
 | *图 2.1-A：数据流转示意图*                                   | *图 2.1-B：核心函数调用链*                                   |
 
+**核心路径总结：**
+`文件 (File)` ➔ `解封装 (Demux)` ➔ `压缩包 (Packet)` ➔ `解码 (Decode)` ➔ `原始帧 (Frame)`
+
 ---
+
+#### 2.1.2 步骤分解与 API 实现
+
+我们可以将整个解码初始化与循环过程分为三个阶段：
+
+##### 第一阶段：环境初始化与流定位
+首先需要打开容器并确认我们要处理的媒体流（如视频流）。
+
+```cpp
+// 1. 打开视频文件 (Demux)
+avformat_open_input(&fmt_ctx, url, nullptr, nullptr); 
+
+// 2. 探测流信息（填充 fmt_ctx->streams）
+avformat_find_stream_info(fmt_ctx, nullptr);
+
+// 3. 自动筛选最优的视频流索引
+int video_index = av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
+```
+
+##### 第二阶段：解码器准备
+定位到流后，需要配置与之对应的解码器上下文。
+
+```cpp
+// 4. 获取流参数 (Codec Parameters)
+AVStream *st = fmt_ctx->streams[video_index];
+AVCodecParameters *codec_par = st->codecpar;
+
+// 5. 查找对应的硬件/软件解码器
+const AVCodec *codec = avcodec_find_decoder(codec_par->codec_id);
+
+// 6. 创建解码器上下文并关联参数
+AVCodecContext *codec_ctx = avcodec_alloc_context3(codec);
+avcodec_parameters_to_context(codec_ctx, codec_par); // 将流参数拷贝至上下文
+
+// 7. 激活解码器
+avcodec_open2(codec_ctx, codec, nullptr);
+```
+
+##### 第三阶段：解码循环 (The Loop)
+这是程序最核心的部分：不停地读取 Packet 并送入解码器获取 Frame。
+
+```cpp
+AVPacket *pkt = av_packet_alloc();
+AVFrame *frame = av_frame_alloc();
+
+// 8. 从文件中读取压缩数据包 (Demuxing)
+while (av_read_frame(fmt_ctx, pkt) >= 0) {
+    // 9. 仅处理我们选中的视频流
+    if (pkt->stream_index == video_index) {
+        
+        // 10. 发送压缩包到解码器
+        if (avcodec_send_packet(codec_ctx, pkt) == 0) {
+            
+            // 11. 循环接收解码后的原始帧 (一个 Packet 可能对应多个 Frame)
+            while (avcodec_receive_frame(codec_ctx, frame) == 0) {
+                // 读取成功，此时 frame 包含原始数据
+            }
+        }
+    }
+    av_packet_unref(pkt); // 释放 Packet 引用
+}
+```
+
+---
+
+#### 2.1.3 解码产物说明
+
+解码完成后，数据存储在 `AVFrame` 结构体中，不同类型的流产物不同：
+
+| 媒体类型   | 数据形式 (`frame->data`)                     | 后续处理                                                     |
+| :--------- | :------------------------------------------- | :----------------------------------------------------------- |
+| **📽️ 视频** | `data[0-2]` 存放 **YUV** 或 **RGB** 像素数据 | 通常需要使用 `libswscale` 缩放或转换颜色空间后显示           |
+| **🔊 音频** | `data[0]` 存放 **PCM** 原始采样点            | 通常需要使用 `libswresample` 进行**重采样**（转采样率、转声道数） |
+
+---
+
+> [!IMPORTANT]
+> **关键点提醒：**
+> 1. **内存释放**：在循环中必须调用 `av_packet_unref`，否则会导致严重的内存泄漏。
+> 2. **返回值判断**：`avcodec_receive_frame` 返回 `AVERROR(EAGAIN)` 表示需要更多输入，返回 `AVERROR_EOF` 表示流结束，这些在健壮的代码中必须处理。
+> 3. **音频重采样**：音频解码出的 PCM 格式往往与声卡要求的格式不一致（例如声卡要求 44100Hz 采样率），因此重采样是音频播放的必经步骤。
+
+
+
+---
+
+
 
 ### 2.2 错误处理：`av_err2str` vs `av_strerror`
 
@@ -53,8 +148,8 @@ FFmpeg 大部分函数返回 `int` 型错误码（负数为异常）。解析这
 #### 代码范例
 ```cpp
 // ❌ 错误做法：危险！指针指向的内存会在本行结束后销毁
-const char* err = av_err2str(ret); 
-printf("%s", err); 
+const char* err = av_err2str(ret);
+printf("%s", err);
 
 // ✅ 正确做法 A：仅用于临时打印
 printf("Operation failed: %s\n", av_err2str(ret));

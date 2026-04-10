@@ -7,6 +7,8 @@
 #include <QVideoSink>
 #include <QPointer>
 
+#include "player/player.h"
+
 namespace my_video_player {
 class Controller : public QObject {
     Q_OBJECT
@@ -45,6 +47,8 @@ private:
     QString current_time_ = "00:00:00";
     QString total_time_ = "00:00:00";
     QPointer<QVideoSink> video_sink_;
+
+    Player player_; // Controller 拥有 Player 实例
 };
 } // namespace my_video_player
 

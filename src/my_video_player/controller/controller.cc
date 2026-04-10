@@ -13,7 +13,19 @@ void Controller::TogglePlay() {
 
 void Controller::OpenFile(const QString& url) {
     qDebug() << "Open file:" << url;
-    // TODO:打开文件流程，ffmpeg解码初始化
+    QString local_path = url;
+    if (local_path.startsWith("file:///")) {
+        local_path = local_path.mid(8);
+    }
+
+    qDebug() << "Controller: Opening" << local_path;
+
+    // 调用 Player 层的 Open
+    if (player_.Open(local_path.toStdString()) == 0) {
+        qDebug() << "Controller: Video opened and test decoded successfully.";
+    } else {
+        qCritical() << "Controller: Failed to open video.";
+    }
 }
 
 void Controller::SetProgress(double p) {

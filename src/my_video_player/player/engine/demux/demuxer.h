@@ -9,8 +9,8 @@
 namespace my_video_player {
 
 struct PacketItem {
-    AvPacketPtr packet_;
-    int stream_index_ = -1;
+    AvPacketPtr packet;
+    int stream_index = -1;
 };
 
 class Demuxer {
