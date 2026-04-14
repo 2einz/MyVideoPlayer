@@ -1,4 +1,5 @@
 set(ENGINE_DIR player/engine)
+set(RENDERER_DIR player/output)
 
 set(PROJECT_SOURCES
     main.cc
@@ -15,6 +16,12 @@ set(PROJECT_SOURCES
     ${ENGINE_DIR}/decode/video_decoder.cc
     ${ENGINE_DIR}/decode/audio_decoder.h
     ${ENGINE_DIR}/decode/audio_decoder.cc
+    ${ENGINE_DIR}/convert/video_converter.h
+    ${ENGINE_DIR}/convert/video_converter.cc
+    ${RENDERER_DIR}/qt/qml_image_provider.h
+    ${RENDERER_DIR}/qt/qml_image_provider.cc
+    ${RENDERER_DIR}/qt/video_renderer_qimage.h
+    ${RENDERER_DIR}/qt/video_renderer_qimage.cc
 )
 
 # 生成可执行程序

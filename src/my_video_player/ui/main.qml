@@ -132,13 +132,31 @@ Window {
                 id: videoArea
                 anchors.fill: parent
                 color: "#000000"
-                Text {
-                    anchors.centerIn: parent
-                    text: "VIDEO ENGINE"
-                    color: "#111111"
-                    font.pixelSize: 60
-                    font.bold: true
-                    font.letterSpacing: 10
+
+                // Text {
+                //     anchors.centerIn: parent
+                //     text: "VIDEO ENGINE"
+                //     color: "#111111"
+                //     font.pixelSize: 60
+                //     font.bold: true
+                //     font.letterSpacing: 10
+                // }
+                Image {
+                    id: videoOutput
+                    anchors.fill: parent
+                    fillMode: Image.PreserveAspectFit
+                    // 关键点：使用 image:// 前缀访问 Provider
+                    // 后面加个变量来强制刷新缓存
+                    source: "image://my_player_image/frame"
+                    cache: false
+                }
+
+                Connections {
+                    target: playerCtrl
+                    function onFrameReady() {
+                        // 通过修改 source 路径触发 QML 重新调用 requestImage
+                        videoOutput.source = "image://my_player_image/frame?t=" + new Date().getTime();
+                    }
                 }
             }
 
@@ -295,8 +313,11 @@ Window {
                             iconSource: (typeof playerCtrl !== "undefined" && playerCtrl.isPlaying) ? "assets/player_pause.svg" : "assets/player_play.svg"
                             iconWidth: 32
                             onClicked: if (typeof playerCtrl !== "undefined") {
-                                playerCtrl.TogglePlay();
-                                playerCtrl.OpenFile("D:/Workspace/AudioVideo/test_media_files/trailer/trailer.mp4");
+                                if (playerCtrl.currentTime == "00:00:00") {
+                                    playerCtrl.OpenFile("D:/Workspace/AudioVideo/test_media_files/trailer/trailer.mp4");
+                                } else {
+                                    playerCtrl.TogglePlay();
+                                }
                             }
                         }
                         ControlButton {

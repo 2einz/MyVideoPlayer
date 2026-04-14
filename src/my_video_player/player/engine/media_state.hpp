@@ -2,13 +2,13 @@
 #define MY_VIDEO_PLAYER_PLAYER_MEDIA_STATE_H_
 
 #include <atomic>
+#include <iostream>
 #include <string>
 
 namespace my_video_player {
 
-// 播放器主体状态
-enum class PlayerState {
-    kIdle,     // 闲置
+enum class State {
+    kIdle,     // 闲置 Idle 是“对象是否存在”的状态
     kLoading,  // 打开文件（解封装中）
     kPrepared, // 已准备好（获取到流信息）
     kPlaying,  // 播放中
@@ -16,52 +16,65 @@ enum class PlayerState {
     kSeeking,  // 正在跳转
     kEnded,    // 播放结束
     kStopped,  // 已停止
-    kError     // 发生错误
+    kError     // 发生错误 IO错误
 };
 
-// 缓冲池状态
-enum class BufferState {
-    kEmpty,     // 完全没数据
-    kBuffering, // 正在缓冲
-    kReady      // 数据充足，可以播放
+enum class Action {
+    kOpen,
+    kPrepared,
+
+    kUserPlay,
+    kUserPause,
+    kUserStop,
+    kUserSeek,
+
+    kReachedSeekTarget,
+
+    kReachedEnd,
+    kError
 };
 
 // 播放器状态中心
 class MediaState {
+    // 播放器主体状态
 public:
-    MediaState()
-        : state_(PlayerState::kIdle), buffer_state_(BufferState::kEmpty), stop_requested_(false),
-          pause_requested_(false), seek_requested_(false), seek_position_(0.0) {}
+    MediaState() : state_(State::kIdle), seek_requested_(false), seek_position_(0.0) {}
 
     MediaState(const MediaState&) = delete;
     MediaState& operator=(const MediaState&) = delete;
 
-    void set_state(PlayerState state) { state_.store(state); }
-    PlayerState state() const { return state_.load(); }
+    // Query
+    bool IsPlaying() const { return state_.load() == State::kPlaying; }
+    bool IsPaused() const { return state_.load() == State::kPaused; }
+    bool IsStopped() const { return state_.load() == State::kStopped; }
+    bool HasError() const { return state_.load() == State::kError; }
+    bool IsIdle() const { return state_.load() == State::kIdle; }
 
-    bool is_playing() const { return state_.load() == PlayerState::kPlaying; }
-    bool is_paused() const { return state_.load() == PlayerState::kPaused; }
-    bool is_stopped() const { return state_.load() == PlayerState::kStopped; }
-    bool has_error() const { return state_.load() == PlayerState::kError; }
+    State GetState() const { return state_.load(); }
 
-    void set_buffer_state(BufferState state) { buffer_state_.store(state); }
-    BufferState buffer_state() const { return buffer_state_.load(); }
-    bool is_buffering() const { return buffer_state_.load() == BufferState::kBuffering; }
+    // --- Action ---
+    void Dispatch(Action action) {
+        State old = state_.load();
+        State next = Redux(old, action);
 
-    // --- 控制请求 (Flags) ---
-    void set_stop_requested(bool stop) { stop_requested_.store(stop); }
-    bool stop_requested() const { return stop_requested_.load(); }
-
-    void set_pause_requested(bool pause) { pause_requested_.store(pause); }
-    bool pause_requested() const { return pause_requested_.load(); }
-
-    // --- 动作函数 ---
-    void RequestSeek(double position) {
-        seek_position_.store(position);
-        seek_requested_.store(true);
+        if (next != old) {
+            state_.store(next);
+        } else {
+            std::cerr << "[MediaState] Invalid transition:" << toString() << " action=" << static_cast<int>(action);
+        }
     }
 
-    bool seek_requested() const { return seek_requested_.load(); }
+    void Seek(double pos) {
+        // 保存目标位置
+        seek_position_.store(pos);
+        seek_requested_.store(true);
+
+        // 用户发起seek
+        Dispatch(Action::kUserSeek);
+    }
+
+    // Internal Logic
+    bool HasSeekRequest() const { return seek_requested_.load(); }
 
     // 获取位置并重置请求状态
     double ConsumeSeekPosition() {
@@ -69,24 +82,24 @@ public:
         return seek_position_.load();
     }
 
-    // 测试
+    // DEBUG
     std::string toString() const {
         switch (state_.load()) {
-        case PlayerState::kIdle:
+        case State::kIdle:
             return "Idle";
-        case PlayerState::kLoading:
+        case State::kLoading:
             return "Loading";
-        case PlayerState::kPlaying:
+        case State::kPlaying:
             return "Playing";
-        case PlayerState::kPaused:
+        case State::kPaused:
             return "Paused";
-        case PlayerState::kStopped:
+        case State::kStopped:
             return "Stopped";
-        case PlayerState::kSeeking:
+        case State::kSeeking:
             return "Seeking";
-        case PlayerState::kEnded:
+        case State::kEnded:
             return "Ended";
-        case PlayerState::kError:
+        case State::kError:
             return "Error";
         default:
             return "Unknown";
@@ -94,11 +107,108 @@ public:
     }
 
 private:
-    std::atomic<PlayerState> state_;
-    std::atomic<BufferState> buffer_state_;
+    // 状态机
+    State Redux(State from, Action action) {
+        switch (from) {
+        case State::kIdle:
+            if (action == Action::kOpen)
+                return State::kLoading;
+            break;
 
-    std::atomic_bool stop_requested_;
-    std::atomic_bool pause_requested_;
+        case State::kLoading:
+            if (action == Action::kPrepared)
+                return State::kPrepared;
+            if (action == Action::kError)
+                return State::kError;
+            break;
+
+        case State::kPrepared:
+            if (action == Action::kUserPlay)
+                return State::kPlaying;
+            if (action == Action::kUserStop)
+                return State::kStopped;
+            if (action == Action::kError)
+                return State::kError;
+            break;
+
+        case State::kPlaying:
+            if (action == Action::kUserPause)
+                return State::kPaused;
+
+            if (action == Action::kUserSeek)
+                return State::kSeeking;
+
+            if (action == Action::kReachedEnd)
+                return State::kEnded;
+
+            if (action == Action::kUserStop)
+                return State::kStopped;
+
+            if (action == Action::kError)
+                return State::kError;
+
+            break;
+
+        case State::kPaused:
+            if (action == Action::kUserPlay)
+                return State::kPlaying;
+
+            if (action == Action::kUserSeek)
+                return State::kSeeking;
+
+            if (action == Action::kUserStop)
+                return State::kStopped;
+
+            break;
+
+        case State::kSeeking:
+
+            if (action == Action::kReachedSeekTarget)
+                return State::kPlaying;
+
+            if (action == Action::kUserPause)
+                return State::kPaused;
+
+            if (action == Action::kUserStop)
+                return State::kStopped;
+
+            if (action == Action::kError)
+                return State::kError;
+
+            break;
+
+        case State::kEnded:
+            if (action == Action::kUserPlay)
+                return State::kPlaying;
+
+            if (action == Action::kUserStop)
+                return State::kStopped;
+
+            if (action == Action::kUserSeek)
+                return State::kSeeking;
+
+            break;
+
+        case State::kStopped:
+            if (action == Action::kOpen)
+                return State::kLoading;
+
+            break;
+
+        case State::kError:
+            if (action == Action::kUserStop)
+                return State::kStopped;
+
+            break;
+        }
+
+        return from; // 不允许非法跳转
+    }
+    // --- 控制请求 (Flags) ---
+    bool seek_requested() const { return seek_requested_.load(); }
+
+private:
+    std::atomic<State> state_;
 
     std::atomic_bool seek_requested_;
     std::atomic<double> seek_position_;

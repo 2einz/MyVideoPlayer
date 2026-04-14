@@ -22,8 +22,15 @@ public:
     // 打开并测试视频解码
     int Open(const std::string& url);
 
-    //
+    // Getter
     MediaState* GetMediaState() { return &media_state_; }
+    const MediaState* GetMediaState() const { return &media_state_; }
+
+    Demuxer& GetDemuxer() { return demuxer_; }
+    const Demuxer& GetDemuxer() const { return demuxer_; }
+
+    VideoDecoder& GetVideoDecoder() { return video_decoder_; }
+    const VideoDecoder& GetVideoDecoder() const { return video_decoder_; }
 
 private:
     // 核心组件

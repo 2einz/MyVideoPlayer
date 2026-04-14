@@ -32,28 +32,28 @@ int Player::Open(const std::string& url) {
     }
     std::cout << "[Player] Video decoder initialized." << std::endl;
 
-    // 测试解码
-    PacketItem pkt_item;
-    FrameItem frame_item;
+    // // 测试解码
+    // PacketItem pkt_item;
+    // FrameItem frame_item;
 
-    AVRational v_time_base = demuxer_.format_context()->streams[demuxer_.video_stream_index()]->time_base;
+    // AVRational v_time_base = demuxer_.format_context()->streams[demuxer_.video_stream_index()]->time_base;
 
-    int count = 0;
-    while (count < 10) { // 测试解 10 帧
-        int read_ret = demuxer_.ReadPacket(&pkt_item);
-        if (read_ret < 0) {
-            std::cerr << "[Player] Read packet failed during test: " << read_ret << std::endl;
-            break;
-        }
-        if (pkt_item.stream_index == demuxer_.video_stream_index()) {
-            if (video_decoder_.SendPacket(pkt_item) == 0) {
-                while (video_decoder_.ReceiveFrame(&frame_item, v_time_base) == 0) {
-                    count++;
-                    std::printf("[Player Test] Decoded Frame %d | PTS: %.3f\n", count, frame_item.pts);
-                }
-            }
-        }
-    }
+    // int count = 0;
+    // while (count < 10) { // 测试解 10 帧
+    //     int read_ret = demuxer_.ReadPacket(&pkt_item);
+    //     if (read_ret < 0) {
+    //         std::cerr << "[Player] Read packet failed during test: " << read_ret << std::endl;
+    //         break;
+    //     }
+    //     if (pkt_item.stream_index == demuxer_.video_stream_index()) {
+    //         if (video_decoder_.SendPacket(pkt_item) == 0) {
+    //             while (video_decoder_.ReceiveFrame(&frame_item, v_time_base) == 0) {
+    //                 count++;
+    //                 std::printf("[Player Test] Decoded Frame %d | PTS: %.3f\n", count, frame_item.pts);
+    //             }
+    //         }
+    //     }
+    // }
 
     return 0;
 }

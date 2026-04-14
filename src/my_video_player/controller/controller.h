@@ -4,10 +4,13 @@
 #include <QObject>
 #include <QString>
 #include <QTimer>
-#include <QVideoSink>
 #include <QPointer>
 
+#include <thread>
+#include <atomic>
+
 #include "player/player.h"
+#include "player/output/qt/video_renderer_qimage.h"
 
 namespace my_video_player {
 class Controller : public QObject {
@@ -17,37 +20,46 @@ class Controller : public QObject {
     Q_PROPERTY(double progress READ progress WRITE SetProgress NOTIFY ProgressChanged)
     Q_PROPERTY(QString currentTime READ current_time NOTIFY TimeChanged)
     Q_PROPERTY(QString totalTime READ total_time NOTIFY TimeChanged)
-    Q_PROPERTY(QVideoSink* videoSink READ video_sink WRITE SetVideoSink NOTIFY VideoSinkChanged)
 
 public:
     explicit Controller(QObject* parent = nullptr);
+    ~Controller();
 
     Q_INVOKABLE void TogglePlay();
     Q_INVOKABLE void OpenFile(const QString& url);
+    Q_INVOKABLE void Stop();
 
     // Getters
-    bool is_playing() const { return is_playing_; };
+    bool is_playing() const;
     double progress() const { return progress_; };
     QString current_time() const { return current_time_; }
     QString total_time() const { return total_time_; }
-    QVideoSink* video_sink() const { return video_sink_.data(); }
+    QmlImageProvider* provider() const { return provider_; }
 
     // Setters
     void SetProgress(double p);
-    void SetVideoSink(QVideoSink* sink);
+    void SetImageProvider(QmlImageProvider* provider);
+
 signals:
     void IsPlayingChanged();
     void ProgressChanged();
     void TimeChanged();
-    void VideoSinkChanged();
+    void frameReady(); // 用于通知 QML 刷新 Image 控件
 
 private:
-    bool is_playing_ = false; // 是否播放
-    double progress_ = 0.0;   // 播放进度
+    void PlayLoop(); // 线程主循环
+    void Clear();
+
+private:
+    std::atomic<bool> thread_running_{false};
+    std::thread play_thread_;
+
+    double progress_ = 0.0; // 播放进度
     QString current_time_ = "00:00:00";
     QString total_time_ = "00:00:00";
-    QPointer<QVideoSink> video_sink_;
 
+    QmlImageProvider* provider_ = nullptr;
+    VideoRendererQImage renderer_;
     Player player_; // Controller 拥有 Player 实例
 };
 } // namespace my_video_player
