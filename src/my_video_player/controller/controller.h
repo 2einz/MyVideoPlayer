@@ -47,7 +47,6 @@ signals:
     void frameReady(); // 用于通知 QML 刷新 Image 控件
 
 private:
-    void PlayLoop(); // 线程主循环
     QString FormatTime(double seconds);
     void Clear();
 

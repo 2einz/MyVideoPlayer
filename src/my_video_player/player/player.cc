@@ -1,6 +1,8 @@
 #include "player/player.h"
 
 #include <iostream>
+#include <thread>
+#include <chrono>
 
 namespace my_video_player {
 
@@ -15,7 +17,6 @@ int Player::Open(const std::string& url) {
         std::cerr << "[Player] Demuxer open failed: " << ret << std::endl;
         return -1;
     }
-    std::cout << "[Player] Demuxer opened successfully." << std::endl;
 
     // 初始化视频解码器
     AVCodecParameters* v_params = demuxer_.GetVideoCodecParameters();
@@ -32,29 +33,90 @@ int Player::Open(const std::string& url) {
     }
     std::cout << "[Player] Video decoder initialized." << std::endl;
 
-    // // 测试解码
-    // PacketItem pkt_item;
-    // FrameItem frame_item;
-
-    // AVRational v_time_base = demuxer_.format_context()->streams[demuxer_.video_stream_index()]->time_base;
-
-    // int count = 0;
-    // while (count < 10) { // 测试解 10 帧
-    //     int read_ret = demuxer_.ReadPacket(&pkt_item);
-    //     if (read_ret < 0) {
-    //         std::cerr << "[Player] Read packet failed during test: " << read_ret << std::endl;
-    //         break;
-    //     }
-    //     if (pkt_item.stream_index == demuxer_.video_stream_index()) {
-    //         if (video_decoder_.SendPacket(pkt_item) == 0) {
-    //             while (video_decoder_.ReceiveFrame(&frame_item, v_time_base) == 0) {
-    //                 count++;
-    //                 std::printf("[Player Test] Decoded Frame %d | PTS: %.3f\n", count, frame_item.pts);
-    //             }
-    //         }
-    //     }
-    // }
-
     return 0;
 }
-} // namespace my_video_player
+
+double Player::GetDuration() const {
+    if (!demuxer_.format_context())
+        return 0.0;
+    auto duration = demuxer_.format_context()->duration;
+    if (duration == AV_NOPTS_VALUE)
+        return 0.0;
+    return static_cast<double>(duration) / AV_TIME_BASE;
+}
+
+const AVCodecParameters* Player::GetVideoCodecParams() const {
+    return demuxer_.GetVideoCodecParameters();
+}
+
+void Player::StartLoop(std::atomic<bool>& thread_runing) {
+    auto* fmt_ctx = demuxer_.format_context();
+    if (!fmt_ctx)
+        return;
+
+    AVRational tb = fmt_ctx->streams[demuxer_.video_stream_index()]->time_base;
+
+    double total_duration = GetDuration();
+
+    PacketItem pkt;
+    FrameItem frame;
+    double last_pts = -1.0;
+    std::cout << "[Player] PlayLoop Start" << std::endl;
+
+    while (thread_runing) {
+        State current_state = media_state_.GetState();
+
+        // 停止和错误处理
+        if (current_state == State::kStopped || current_state == State::kError)
+            break;
+
+        // 处理暂停
+        if (current_state == State::kPaused) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            continue;
+        }
+
+        // 处理Seek
+        if (media_state_.HasSeekRequest()) {
+            double target = media_state_.ConsumeSeekPosition();
+
+            demuxer_.Seek(target);
+
+            // 清理缓冲区
+            video_decoder_.Flush();
+
+            last_pts = -1.0;
+
+            media_state_.Dispatch(Action::kReachedSeekTarget);
+            continue;
+        }
+
+        // 读取与解码逻辑
+        if (demuxer_.ReadPacket(&pkt) < 0) {
+            media_state_.Dispatch(Action::kReachedEnd);
+            if (on_finished_)
+                on_finished_();
+            break;
+        }
+
+        if (pkt.stream_index == demuxer_.video_stream_index()) {
+            if (video_decoder_.SendPacket(pkt) == 0) {
+                while (video_decoder_.ReceiveFrame(&frame, tb) == 0) {
+                    // 触发上层 UI 渲染与进度更新
+                    if (on_frame_ready_) {
+                        on_frame_ready_(frame);
+                    }
+
+                    // 简易帧率同步
+                    if (last_pts >= 0) {
+                        double diff = frame.pts - last_pts;
+                        if (diff > 0 && diff < 1.0) {
+                            std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(diff * 1000)));
+                        }
+                    }
+                    last_pts = frame.pts;
+                }
+            }
+        }
+
+    } // namespace my_video_player

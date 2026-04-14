@@ -1,5 +1,5 @@
-#ifndef MY_VIDEO_PLAYER_PLAYER_MEDIA_STATE_H_
-#define MY_VIDEO_PLAYER_PLAYER_MEDIA_STATE_H_
+#ifndef MY_VIDEO_PLAYER_PLAYER_MEDIA_STATE_HPP_
+#define MY_VIDEO_PLAYER_PLAYER_MEDIA_STATE_HPP_
 
 #include <atomic>
 #include <iostream>
@@ -216,4 +216,4 @@ private:
 
 } // namespace my_video_player
 
-#endif // MY_VIDEO_PLAYER_PLAYER_MEDIA_STATE_H_
+#endif // MY_VIDEO_PLAYER_PLAYER_MEDIA_STATE_HPP_
