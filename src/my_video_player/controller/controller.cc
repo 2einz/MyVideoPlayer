@@ -18,6 +18,7 @@ void Controller::OpenFile(const QString& url) {
     auto* ms = player_.GetMediaState();
     if (!ms->IsIdle()) {
         Stop(); // 停止旧线程
+        Clear();
         ms->Dispatch(Action::kUserStop);
     }
 
@@ -33,6 +34,15 @@ void Controller::OpenFile(const QString& url) {
     // 调用 Player 层的 Open
     if (player_.Open(local_path.toStdString()) == 0) {
         qDebug() << "Controller: Video opened and test decoded successfully.";
+        // 获取时间
+        auto* fmt_ctx = player_.GetDemuxer().format_context();
+
+        if (fmt_ctx->duration != AV_NOPTS_VALUE) {
+            double total_sec = static_cast<double>(fmt_ctx->duration) / AV_TIME_BASE;
+            total_time_ = FormatTime(total_sec);
+            emit TimeChanged();
+        }
+
         // 获取视频参数并初始化 Renderer
         AVCodecParameters* params = player_.GetDemuxer().GetVideoCodecParameters();
 
@@ -65,7 +75,13 @@ void Controller::PlayLoop() {
     FrameItem frame;
     double last_pts = -1.0; // 标记为第一帧
 
-    AVRational tb = demuxer.format_context()->streams[demuxer.video_stream_index()]->time_base;
+    auto* fmt_ctx = demuxer.format_context();
+
+    AVRational tb = fmt_ctx->streams[demuxer.video_stream_index()]->time_base;
+
+    // 获取总秒数用于计算进度
+    double total_duration_sec =
+        (fmt_ctx->duration != AV_NOPTS_VALUE) ? (static_cast<double>(fmt_ctx->duration) / AV_TIME_BASE) : 0;
 
     qDebug() << "Controller: PlayLoop Start\n";
     while (thread_running_) {
@@ -106,6 +122,19 @@ void Controller::PlayLoop() {
                     renderer_.Render(frame.frame.get());
                     emit frameReady();
 
+                    // 更新时间字符串
+                    QString time_str = FormatTime(frame.pts);
+                    if (time_str != current_time_) {
+                        current_time_ = time_str;
+                        emit TimeChanged();
+                    }
+
+                    // 更新进度条比例
+                    if (total_duration_sec > 0) {
+                        progress_ = frame.pts / total_duration_sec;
+                        emit ProgressChanged();
+                    }
+
                     // 简易同步
                     if (last_pts >= 0) { // 不是第一帧
                         double diff = frame.pts - last_pts;
@@ -118,6 +147,13 @@ void Controller::PlayLoop() {
             }
         }
     }
+}
+
+QString Controller::FormatTime(double total_seconds) {
+    int tt = static_cast<int>(total_seconds);
+    int h = tt / 3600, m = (tt % 3600) / 60, s = tt % 60;
+
+    return QString::asprintf("%02d:%02d:%02d", h, m, s);
 }
 
 void Controller::TogglePlay() {
@@ -136,6 +172,15 @@ void Controller::Stop() {
     if (play_thread_.joinable()) {
         play_thread_.join();
     }
+}
+
+void Controller::Clear() {
+    progress_ = 0.0;
+    current_time_ = "00:00:00";
+    total_time_ = "00:00:00";
+
+    emit ProgressChanged();
+    emit TimeChanged();
 }
 
 void Controller::SetProgress(double p) {

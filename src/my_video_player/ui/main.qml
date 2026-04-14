@@ -281,23 +281,85 @@ Window {
                     Slider {
                         id: progressSlider
                         Layout.fillWidth: true
-                        value: (typeof playerCtrl !== "undefined") ? playerCtrl.progress : 0.4
-                        background: Rectangle {
-                            height: 4
-                            radius: 2
-                            color: "#22FFFFFF"
+                        from: 0.0
+                        to: 1.0
+                        implicitHeight: 24 // 增加高度，方便点击
+
+                        // 【关键修改 1】清空所有内边距，确保坐标系从 (0,0) 开始
+                        padding: 0
+                        leftPadding: 0
+                        rightPadding: 0
+                        topPadding: 0
+                        bottomPadding: 0
+
+                        Binding {
+                            target: progressSlider
+                            property: "value"
+                            value: (typeof playerCtrl !== "undefined") ? playerCtrl.progress : 0.0
+                            when: !progressSlider.pressed
+                        }
+
+                        // --- 背景轨道 ---
+                        background: Item {
+                            width: progressSlider.width
+                            height: progressSlider.height
+
+                            // 灰色底条
                             Rectangle {
-                                width: progressSlider.visualPosition * parent.width
-                                height: parent.height
-                                color: "#0078D4"
+                                id: trackBase
+                                width: parent.width
+                                height: 4
                                 radius: 2
+                                color: "#22FFFFFF"
+                                // 【关键修改 2】强制在 Slider 容器内垂直居中
+                                y: (parent.height - height) / 2
+                            }
+
+                            // 蓝色进度条
+                            Rectangle {
+                                // 确保起点对齐
+                                x: 0
+                                // 终点对齐球的中心
+                                width: sliderHandle.x + (sliderHandle.width / 2)
+                                height: 4
+                                radius: 2
+                                color: "#0078D4"
+                                // 【关键修改 3】同样强制垂直居中
+                                y: (parent.height - height) / 2
                             }
                         }
+
+                        // --- 滑块球 ---
                         handle: Rectangle {
-                            width: 14
-                            height: 14
-                            radius: 7
+                            id: sliderHandle
+                            // x 计算：确保球不会超出左右边界
+                            x: progressSlider.visualPosition * (progressSlider.width - width)
+
+                            // 【关键修改 4】使用与轨道完全一致的垂直居中逻辑
+                            y: (progressSlider.height - height) / 2
+
+                            width: progressSlider.pressed ? 16 : 12
+                            height: width
+                            radius: width / 2
                             color: "white"
+
+                            Behavior on width {
+                                NumberAnimation {
+                                    duration: 100
+                                }
+                            }
+
+                            // 鼠标移入时的外发光
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: parent.width + 8
+                                height: parent.height + 8
+                                radius: width / 2
+                                color: "#20FFFFFF"
+                                visible: progressSlider.hovered || progressSlider.pressed
+                                border.color: "#44000000"
+                                border.width: 1
+                            }
                         }
                     }
 
@@ -313,11 +375,7 @@ Window {
                             iconSource: (typeof playerCtrl !== "undefined" && playerCtrl.isPlaying) ? "assets/player_pause.svg" : "assets/player_play.svg"
                             iconWidth: 32
                             onClicked: if (typeof playerCtrl !== "undefined") {
-                                if (playerCtrl.currentTime == "00:00:00") {
-                                    playerCtrl.OpenFile("D:/Workspace/AudioVideo/test_media_files/trailer/trailer.mp4");
-                                } else {
-                                    playerCtrl.TogglePlay();
-                                }
+                                playerCtrl.TogglePlay();
                             }
                         }
                         ControlButton {
@@ -444,7 +502,12 @@ Window {
                             id: delegateMouse
                             anchors.fill: parent
                             hoverEnabled: true
-                            onClicked: playlistView.currentIndex = index
+                            onClicked: {
+                                playlistView.currentIndex = index;
+                                if (typeof playerCtrl !== "undefined") {
+                                    playerCtrl.OpenFile("D:/Workspace/AudioVideo/test_media_files/trailer/trailer.mp4");
+                                }
+                            }
                         }
                     }
                 }

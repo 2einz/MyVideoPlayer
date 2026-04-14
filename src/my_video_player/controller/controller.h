@@ -48,13 +48,14 @@ signals:
 
 private:
     void PlayLoop(); // 线程主循环
+    QString FormatTime(double seconds);
     void Clear();
 
 private:
     std::atomic<bool> thread_running_{false};
     std::thread play_thread_;
 
-    double progress_ = 0.0; // 播放进度
+    double progress_ = 0.0; // 播放进度条
     QString current_time_ = "00:00:00";
     QString total_time_ = "00:00:00";
 
