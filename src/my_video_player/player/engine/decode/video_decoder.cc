@@ -66,4 +66,9 @@ int VideoDecoder::ReceiveFrame(FrameItem* frame_item, AVRational time_base) {
     return 0;
 }
 
+void VideoDecoder::Flush() {
+    if (codec_ctx_) {
+        avcodec_flush_buffers(codec_ctx_.get());
+    }
+}
 } // namespace my_video_player

@@ -5,7 +5,7 @@ QmlImageProvider::QmlImageProvider() : QQuickImageProvider(QQuickImageProvider::
 
 QImage QmlImageProvider::requestImage(const QString& id, QSize* size, const QSize& requestedSize) {
     QMutexLocker locker(&mutex_);
-    qDebug() << "QML is requesting image, id:" << id << " Internal image null?" << image_.isNull();
+    qDebug() << "QML is requesting image, id:" << id;
 
     if (image_.isNull()) {
         return QImage(requestedSize.isValid() ? requestedSize : QSize(100, 100), QImage::Format_RGB32);

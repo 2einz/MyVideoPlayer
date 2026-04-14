@@ -285,7 +285,7 @@ Window {
                         to: 1.0
                         implicitHeight: 24 // 增加高度，方便点击
 
-                        // 【关键修改 1】清空所有内边距，确保坐标系从 (0,0) 开始
+                        // 清空所有内边距，确保坐标系从 (0,0) 开始
                         padding: 0
                         leftPadding: 0
                         rightPadding: 0
@@ -311,7 +311,6 @@ Window {
                                 height: 4
                                 radius: 2
                                 color: "#22FFFFFF"
-                                // 【关键修改 2】强制在 Slider 容器内垂直居中
                                 y: (parent.height - height) / 2
                             }
 
@@ -324,7 +323,6 @@ Window {
                                 height: 4
                                 radius: 2
                                 color: "#0078D4"
-                                // 【关键修改 3】同样强制垂直居中
                                 y: (parent.height - height) / 2
                             }
                         }
@@ -335,7 +333,6 @@ Window {
                             // x 计算：确保球不会超出左右边界
                             x: progressSlider.visualPosition * (progressSlider.width - width)
 
-                            // 【关键修改 4】使用与轨道完全一致的垂直居中逻辑
                             y: (progressSlider.height - height) / 2
 
                             width: progressSlider.pressed ? 16 : 12
@@ -359,6 +356,12 @@ Window {
                                 visible: progressSlider.hovered || progressSlider.pressed
                                 border.color: "#44000000"
                                 border.width: 1
+                            }
+                        }
+
+                        onMoved: {
+                            if (typeof playerCtrl != "undefined") {
+                                playerCtrl.progress = value;
                             }
                         }
                     }

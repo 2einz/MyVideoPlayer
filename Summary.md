@@ -130,6 +130,46 @@ while (av_read_frame(fmt_ctx, pkt) >= 0) {
 
 ---
 
+### 2.2 时间
+
+#### 2.2.1 时间基准 (Timebase/AVRational)
+- if Timebase = 1/1000, 刻度是"ms"
+- if Timebase = 1/90000, MPEG常用，每秒被分成90000份
+- 秒 = 刻度值 * (num / den)
+
+#### 2.2.2 PTS vs DTS
+- DTS(Decoding Timestamp) ：应该什么时候把包丢尽解码器 （解决解码顺序问题）
+- PTS(Presentation Timestamp) : 应该什么时候把画面显示在屏幕上 （解决播放速度问题）
+
+#### 2.2.3 内部时间基准 (AV_TIME_BASE)
+
+`AV_TIME_BASE 100 000` 是 FFmpeg内部宏。
+FFmpeg内部的刻度尺：微秒； AVFormatContext::duration(总时长) 就是微秒刻度
+
+#### 2.2.4 时间戳
+
+FFmpeg中*时间戳*的本质是：时间值=时间戳*时间基(time_base)
+- 通用时间基：`AV_TIME_BASE` = 1 000 000 微秒，对应时间基 `{1， AV_TIME_BASE}`
+- 流内部时间基：`stream->time_base` 视频中常见 `{1, 25}`, `{1， 30}`, `{1, 90 000}`
+- 时间戳必须是`int64_t`
+
+
+FFmpeg中常用函数 `av_rescale_q ` *跨时间基单位换算*
+```cpp
+int64_t av_rescale_q(
+    int64_t a,      // 原始数值
+    AVRational bq,  // 原始数值的时间基
+    AVRational cq   // 目标时间基
+);
+```
+
+#### 2.2.5 Seek
+
+flag
+
+`AVSEEK_FLAG_BACKWARD`：向后/找最近的关键帧
+`AVSEEK_FLAG_FRAME`：精确到帧，不强制关键帧
+---
 
 
 ### 2.2 错误处理：`av_err2str` vs `av_strerror`

@@ -54,6 +54,21 @@ int Demuxer::ReadPacket(PacketItem* packet_item) {
     return ret;
 }
 
+int Demuxer::Seek(double seconds) {
+    if (!format_ctx_)
+        return -1;
+
+    // 将秒转换为流的内部时间戳
+    int64_t target_pts =
+        av_rescale_q(seconds * AV_TIME_BASE, {1, AV_TIME_BASE}, format_ctx_->streams[video_stream_index_]->time_base);
+
+    // 执行seek
+    int ret =
+        av_seek_frame(format_ctx_.get(), video_stream_index_, target_pts, AVSEEK_FLAG_BACKWARD | AVSEEK_FLAG_FRAME);
+
+    return ret;
+}
+
 AVCodecParameters* Demuxer::GetVideoCodecParameters() const {
     if (video_stream_index_ < 0)
         return nullptr;

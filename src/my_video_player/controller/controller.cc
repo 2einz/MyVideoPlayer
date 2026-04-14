@@ -100,7 +100,15 @@ void Controller::PlayLoop() {
         // 处理Seek
         if (ms->HasSeekRequest()) {
             double target = ms->ConsumeSeekPosition();
-            // TODO: av_seek_frame(...)
+
+            demuxer.Seek(target);
+
+            // 清理缓冲区
+            decoder.Flush();
+
+            last_pts = -1.0;
+
+            
             ms->Dispatch(Action::kReachedSeekTarget);
             continue;
         }
@@ -184,9 +192,24 @@ void Controller::Clear() {
 }
 
 void Controller::SetProgress(double p) {
-    if (progress_ != p) {
+    // p: from 0.0 to 1.0
+    auto* ms = player_.GetMediaState();
+    auto* fmt_ctx = player_.GetDemuxer().format_context();
+
+    if (!fmt_ctx || fmt_ctx->duration <= 0)
+        return;
+
+    double total_sec = static_cast<double>(fmt_ctx->duration) / AV_TIME_BASE;
+    double target_sec = p * total_sec;
+
+    ms->Seek(target_sec);
+
+    if (std::abs(progress_ - p) > 0.0001) {
         progress_ = p;
         emit ProgressChanged();
+
+        current_time_ = FormatTime(target_sec);
+        emit TimeChanged();
     }
 }
 

@@ -33,6 +33,8 @@ public:
      */
     int ReadPacket(PacketItem* packet);
 
+    int Seek(double seconds);
+
     // Getters
     int video_stream_index() const { return video_stream_index_; }
     int audio_stream_index() const { return audio_stream_index_; }
