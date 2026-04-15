@@ -5,13 +5,8 @@
 #include <vector>
 
 #include "player/engine/common/ffmpeg_raii.h"
-
+#include "player/engine/common/engine_types.h"
 namespace my_video_player {
-
-struct PacketItem {
-    AvPacketPtr packet;
-    int stream_index = -1;
-};
 
 class Demuxer {
 public:

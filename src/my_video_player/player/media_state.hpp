@@ -49,6 +49,9 @@ public:
     bool IsStopped() const { return state_.load() == State::kStopped; }
     bool HasError() const { return state_.load() == State::kError; }
     bool IsIdle() const { return state_.load() == State::kIdle; }
+    bool IsSeeking() const { return state_.load() == State::kSeeking; }
+    bool IsEnded() const { return state_.load() == State::kEnded; }
+    bool IsPrepared() const { return state_.load() == State::kPrepared; }
 
     State GetState() const { return state_.load(); }
 

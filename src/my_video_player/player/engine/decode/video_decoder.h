@@ -3,12 +3,9 @@
 
 #include "player/engine/demux/demuxer.h"
 #include "player/engine/common/ffmpeg_raii.h"
+#include "player/engine/common/engine_types.h"
 
 namespace my_video_player {
-struct FrameItem {
-    AvFramePtr frame;
-    double pts = 0.0; // 时间戳
-};
 
 class VideoDecoder {
 public:

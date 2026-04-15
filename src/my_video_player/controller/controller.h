@@ -3,11 +3,6 @@
 
 #include <QObject>
 #include <QString>
-#include <QTimer>
-#include <QPointer>
-
-#include <thread>
-#include <atomic>
 
 #include "player/player.h"
 #include "player/output/qt/video_renderer_qimage.h"
@@ -17,7 +12,7 @@ class Controller : public QObject {
     Q_OBJECT
 
     Q_PROPERTY(bool isPlaying READ is_playing NOTIFY IsPlayingChanged)
-    Q_PROPERTY(double progress READ progress WRITE SetProgress NOTIFY ProgressChanged)
+    Q_PROPERTY(double progress READ progress NOTIFY ProgressChanged)
     Q_PROPERTY(QString currentTime READ current_time NOTIFY TimeChanged)
     Q_PROPERTY(QString totalTime READ total_time NOTIFY TimeChanged)
 
@@ -28,6 +23,7 @@ public:
     Q_INVOKABLE void TogglePlay();
     Q_INVOKABLE void OpenFile(const QString& url);
     Q_INVOKABLE void Stop();
+    Q_INVOKABLE void SeekToProgress(double p);
 
     // Getters
     bool is_playing() const;
@@ -37,7 +33,6 @@ public:
     QmlImageProvider* provider() const { return provider_; }
 
     // Setters
-    void SetProgress(double p);
     void SetImageProvider(QmlImageProvider* provider);
 
 signals:

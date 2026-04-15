@@ -7,11 +7,17 @@ set(PROJECT_SOURCES
     controller/controller.h
     player/player.cc
     player/player.h
-    ${ENGINE_DIR}/media_state.hpp
+    player/media_state.hpp
     ${ENGINE_DIR}/common/error_util.h
     ${ENGINE_DIR}/common/ffmpeg_raii.h
+    ${ENGINE_DIR}/common/engine_types.h
+    ${ENGINE_DIR}/utils/thread_safe_queue.hpp
     ${ENGINE_DIR}/demux/demuxer.cc
     ${ENGINE_DIR}/demux/demuxer.h
+    ${ENGINE_DIR}/thread/demux_thread.h
+    ${ENGINE_DIR}/thread/demux_thread.cc
+    ${ENGINE_DIR}/thread/video_decode_thread.h
+    ${ENGINE_DIR}/thread/video_decode_thread.cc
     ${ENGINE_DIR}/decode/video_decoder.h
     ${ENGINE_DIR}/decode/video_decoder.cc
     ${ENGINE_DIR}/decode/audio_decoder.h

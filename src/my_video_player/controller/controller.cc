@@ -1,7 +1,7 @@
 #include "controller/controller.h"
 
 #include <QDebug>
-#include <thread>
+#include <cmath>
 
 namespace my_video_player {
 Controller::Controller(QObject* parent) : QObject(parent) {}
@@ -16,14 +16,10 @@ bool Controller::is_playing() const {
 
 void Controller::OpenFile(const QString& url) {
     auto* ms = player_.GetMediaState();
-    if (!ms->IsIdle()) {
-        Stop(); // 停止旧线程
-        Clear();
-        ms->Dispatch(Action::kUserStop);
-    }
 
-    // 开始加载
-    // ms->Dispatch(Action::kOpen);
+    if (!ms->IsIdle() && !ms->IsStopped()) {
+        Stop(); // 清理现场
+    }
 
     QString local_path = url;
     if (local_path.startsWith("file:///"))
@@ -34,12 +30,10 @@ void Controller::OpenFile(const QString& url) {
     // 调用 Player 层的 Open
     if (player_.Open(local_path.toStdString()) == 0) {
         qDebug() << "Controller: Video opened and test decoded successfully.";
-        ms->Dispatch(Action::kPrepared);
 
         // 获取时间
         double total_sec = player_.GetDuration();
         total_time_ = FormatTime(total_sec);
-
         emit TimeChanged();
 
         // 获取视频参数并初始化 Renderer
@@ -51,7 +45,9 @@ void Controller::OpenFile(const QString& url) {
             // binding callback
             player_.SetFrameCallback([this, total_sec](const FrameItem& frame) {
                 renderer_.Render(frame.frame.get());
+
                 emit frameReady();
+
                 QString time_str = FormatTime(frame.pts);
                 if (time_str != current_time_) {
                     current_time_ = time_str;
@@ -69,17 +65,13 @@ void Controller::OpenFile(const QString& url) {
 
             player_.SetFinishCallback([this]() { emit IsPlayingChanged(); });
 
-            // 开始后台播放
-            ms->Dispatch(Action::kUserPlay);
+            player_.Play();
             emit IsPlayingChanged();
-
-            thread_running_ = true;
-            play_thread_ = std::thread([this]() { player_.StartLoop(thread_running_); });
         }
 
     } else {
-        ms->Dispatch(Action::kError);
         qCritical() << "Controller: Failed to open video.";
+        emit IsPlayingChanged();
     }
 }
 
@@ -92,20 +84,20 @@ QString Controller::FormatTime(double total_seconds) {
 
 void Controller::TogglePlay() {
     auto* ms = player_.GetMediaState();
-    if (ms->IsPlaying())
-        ms->Dispatch(Action::kUserPause);
-    else
-        ms->Dispatch(Action::kUserPlay);
+
+    if (ms->IsPlaying()) {
+        player_.Pause();
+    } else {
+        player_.Play();
+    }
 
     emit IsPlayingChanged();
 }
 
 void Controller::Stop() {
-    thread_running_ = false;
-    player_.GetMediaState()->Dispatch(Action::kUserStop);
-    if (play_thread_.joinable()) {
-        play_thread_.join();
-    }
+    player_.Stop();
+    Clear();
+    emit IsPlayingChanged();
 }
 
 void Controller::Clear() {
@@ -117,24 +109,16 @@ void Controller::Clear() {
     emit TimeChanged();
 }
 
-void Controller::SetProgress(double p) {
+void Controller::SeekToProgress(double p) {
     // p: from 0.0 to 1.0
-    auto* ms = player_.GetMediaState();
+
     double total_sec = player_.GetDuration();
     if (total_sec <= 0)
         return;
 
     double target_sec = p * total_sec;
 
-    ms->Seek(target_sec);
-
-    if (std::abs(progress_ - p) > 0.0001) {
-        progress_ = p;
-        emit ProgressChanged();
-
-        current_time_ = FormatTime(target_sec);
-        emit TimeChanged();
-    }
+    player_.Seek(target_sec);
 }
 
 void Controller::SetImageProvider(QmlImageProvider* provider) {
