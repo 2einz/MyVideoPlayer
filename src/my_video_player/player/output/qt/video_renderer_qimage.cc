@@ -4,7 +4,7 @@ namespace my_video_player {
 int VideoRendererQImage::Init(int w, int h, AVPixelFormat fmt) {
     width_ = w;
     height_ = h;
-    return converter_.Init(w, h, fmt, w, h, AV_PIX_FMT_RGBA);
+    return converter_.init(w, h, fmt, w, h, AV_PIX_FMT_RGBA);
 }
 
 void VideoRendererQImage::Render(const AVFrame* frame) {
@@ -15,7 +15,7 @@ void VideoRendererQImage::Render(const AVFrame* frame) {
     QImage img(width_, height_, QImage::Format_RGBA8888);
 
     // 调用引擎层的 Converter 填充像素数据
-    converter_.ConvertToBuffer(frame, img.bits(), img.bytesPerLine());
+    converter_.convert2buffer(frame, img.bits(), img.bytesPerLine());
 
     // 更新 Provider 内部图像
     provider_->UpdateImage(img);

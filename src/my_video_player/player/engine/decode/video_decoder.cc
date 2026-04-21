@@ -1,11 +1,13 @@
 #include "player/engine/decode/video_decoder.h"
-#include "player/engine/common/error_util.h"
 
 #include <iostream>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
 }
+
+#include "player/engine/common/error_util.h"
+#include "log/my_spdlog.h"
 
 namespace my_video_player {
 
@@ -14,7 +16,7 @@ int VideoDecoder::Init(AVCodecParameters* params) {
     const AVCodec* codec = avcodec_find_decoder(params->codec_id);
 
     if (!codec) {
-        std::cerr << "Cannot find decoder for ID: " << params->codec_id << std::endl;
+        LOG_ERROR(LM::kDecode, "Cannot find decoder for ID: ", avcodec_get_name(params->codec_id));
         return AVERROR(EINVAL);
     }
 
@@ -26,7 +28,7 @@ int VideoDecoder::Init(AVCodecParameters* params) {
         return AVERROR(EIO);
     }
 
-    // 开启多线程解码（利用现代 CPU 多核性能）
+    // 开启多线程解码
     codec_ctx_->thread_count = 0; // 0 表示自动选择线程数
 
     // 打开解码器
@@ -34,7 +36,7 @@ int VideoDecoder::Init(AVCodecParameters* params) {
     if (ret < 0)
         return ret;
 
-    std::cout << "Decoder initialized: " << codec->long_name << std::endl;
+    LOG_INFO(LM::kDecode, "Decoder initialized: {}", codec->long_name);
     return 0;
 }
 

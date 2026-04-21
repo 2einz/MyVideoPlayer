@@ -34,10 +34,10 @@ public:
      * 注意：调用前，Player 应该先调用 pkt_queue_->Abort()
      * 以确保线程不会死锁在 Push 上。
      */
-    void Stop();
+    void stop();
 
 private:
-    void Run();
+    void run();
 
     Demuxer* demuxer_ = nullptr;
     VideoPacketQueue* pkt_queue_ = nullptr;

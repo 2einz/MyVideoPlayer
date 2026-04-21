@@ -33,14 +33,14 @@ int Player::Open(const std::string& url) {
 
     ret = video_decoder_.Init(v_params);
     if (ret < 0) {
-        LOG_ERROR(LM::kPlayer, "Video decoder init failed: ");
+        LOG_ERROR(LM::kPlayer, "Video decoder init failed.");
         media_state_.Dispatch(Action::kError);
         return -ret; 
     }
 
     media_state_.Dispatch(Action::kPrepared);
 
-    LOG_INFO(LM::kPlayer, "Open success, Prepared.");
+    LOG_INFO(LM::kPlayer, "Open success, current state is prepared.");
 
     return 0;
 }
@@ -63,19 +63,30 @@ const AVCodecParameters* Player::GetVideoCodecParams() const {
 
 void Player::Play() {
     if (media_state_.IsEnded()) {
-        media_state_.Seek(0.0); // 状态先切到 Seeking (变灰)
+        LOG_INFO(LM::kPlayer, "Trying to restart from EOF...");
 
-        // 重新拉起底层线程
+        // 回收线程
+        if (threads_running_) {
+            demux_thread_.stop();        // 内部会调用 join()
+            video_decode_thread_.stop(); // 内部会调用 join()
+            threads_running_ = false;
+        }
 
         // 执行到 0 秒的 Seek 操作
-        int new_serial = ++video_serial_;
+        media_state_.Seek(0.0); // 状态先切到 Seeking (变灰)
+
+        video_pkt_queue_.Restart();
         video_pkt_queue_.Flush();
+
+        // 重新拉起底层线程
+        int new_serial = ++video_serial_;
         demuxer_.Seek(0.0);
+
         video_pkt_queue_.TryPush(PacketItem::CreateFlushPacket(new_serial), true);
 
         StartInternalThreads();
 
-        LOG_INFO(LM::kPlayer, "Restarting from EOF.");
+        LOG_INFO(LM::kPlayer, "Restarting from EOF successfully.");
         return;
     }
 
@@ -84,8 +95,9 @@ void Player::Play() {
     // 如果底层线程还没启动，拉起线程
     if (!threads_running_) {
         StartInternalThreads();
+        LOG_INFO(LM::kPlayer, "Function StartInternalThreads is Finish");
     } else {
-        video_decode_thread_.WakeUp();
+        video_decode_thread_.wake_up();
     }
 }
 
@@ -97,11 +109,11 @@ void Player::Stop() {
     media_state_.Dispatch(Action::kUserStop);
 
     if (threads_running_) {
-        demux_thread_.Stop();
+        demux_thread_.stop();
 
         video_pkt_queue_.Abort();
 
-        video_decode_thread_.Stop();
+        video_decode_thread_.stop();
 
         video_pkt_queue_.Restart();
 
@@ -138,7 +150,7 @@ void Player::StartInternalThreads() {
     AVRational tb = fmt_ctx->streams[v_stream_idx]->time_base;
 
     // 绑定解码线程的渲染回调
-    video_decode_thread_.SetFrameCallback([this](const FrameItem& frame) {
+    video_decode_thread_.set_frame_callback([this](const FrameItem& frame) {
         if (on_frame_ready_)
             on_frame_ready_(frame);
     });
@@ -147,7 +159,7 @@ void Player::StartInternalThreads() {
     demux_thread_.Start(&demuxer_, &video_pkt_queue_, &media_state_, &video_serial_, on_finished_);
 
     // 启动解码线程
-    video_decode_thread_.Start(&video_decoder_, &video_pkt_queue_, &media_state_, tb, &video_serial_, v_stream_idx);
+    video_decode_thread_.start(&video_decoder_, &video_pkt_queue_, &media_state_, tb, &video_serial_, v_stream_idx);
 
     threads_running_ = true;
     LOG_INFO(LM::kPlayer, "Internal threads started.");

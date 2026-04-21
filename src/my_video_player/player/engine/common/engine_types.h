@@ -9,9 +9,9 @@ struct PacketItem {
 
     int stream_index = -1;
 
-    int64_t pts = AV_NOPTS_VALUE;
-    int64_t dts = AV_NOPTS_VALUE;
-    int64_t duration = 0;
+    double  pts = AV_NOPTS_VALUE;
+    double  dts = AV_NOPTS_VALUE;
+    double  duration = 0;
 
     int serial = 0;
 
@@ -30,8 +30,8 @@ struct FrameItem {
 
     int stream_index = -1;
 
-    int64_t pts = AV_NOPTS_VALUE;
-    int64_t duration = 0;
+    double  pts = AV_NOPTS_VALUE;
+    double  duration = 0;
 
     bool key_frame = false;
 

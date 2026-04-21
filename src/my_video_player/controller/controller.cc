@@ -3,6 +3,8 @@
 #include <QDebug>
 #include <cmath>
 
+#include "log/my_spdlog.h"
+
 namespace my_video_player {
 Controller::Controller(QObject* parent) : QObject(parent) {}
 
@@ -25,11 +27,11 @@ void Controller::OpenFile(const QString& url) {
     if (local_path.startsWith("file:///"))
         local_path = local_path.mid(8);
 
-    qDebug() << "Controller: Opening" << local_path;
+    LOG_INFO(LM::kController, "Opening file: {}", local_path.toStdString());
 
     // 调用 Player 层的 Open
     if (player_.Open(local_path.toStdString()) == 0) {
-        qDebug() << "Controller: Video opened and test decoded successfully.";
+        LOG_INFO(LM::kController, "Video opened and test decoded successfully.");
 
         // 获取时间
         double total_sec = player_.GetDuration();
@@ -70,7 +72,7 @@ void Controller::OpenFile(const QString& url) {
         }
 
     } else {
-        qCritical() << "Controller: Failed to open video.";
+        LOG_CRITICAL(LM::kController, "Failed to open video.");
         emit IsPlayingChanged();
     }
 }

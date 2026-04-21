@@ -36,7 +36,7 @@ public:
      * @param serial 全局序列号指针
      * @param stream_index 当前处理的视频流索引
      */
-    void Start(VideoDecoder* decoder,
+    void start(VideoDecoder* decoder,
                VideoPacketQueue* pkt_queue,
                MediaState* state,
                AVRational time_base,
@@ -47,13 +47,14 @@ public:
      * @brief 唤醒因暂停而休眠的解码线程
      * 必须在 Player::Play() 时显式调用
      */
-    void WakeUp();
+    void wake_up();
 
-    void Stop();
-    void SetFrameCallback(FrameCallback cb) { on_frame_ready_ = std::move(cb); }
+    void stop();
+
+    void set_frame_callback(FrameCallback cb) { on_frame_ready_ = std::move(cb); }
 
 private:
-    void Run();
+    void run();
 
 private:
     VideoDecoder* decoder_ = nullptr;

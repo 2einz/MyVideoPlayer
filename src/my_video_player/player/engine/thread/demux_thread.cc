@@ -8,7 +8,7 @@
 
 namespace my_video_player {
 DemuxThread::~DemuxThread() {
-    Stop();
+    stop();
 }
 
 void DemuxThread::Start(
@@ -20,30 +20,28 @@ void DemuxThread::Start(
     on_finished_ = std::move(cb);
 
     running_ = true;
-    thread_ = std::thread(&DemuxThread::Run, this);
+    thread_ = std::thread(&DemuxThread::run, this);
 }
 
-void DemuxThread::Stop() {
+void DemuxThread::stop() {
     if (!running_)
         return;
 
     running_ = false;
 
     // 注意：如果线程正阻塞在 pkt_queue_->Push() 中，
-    // 外部 (Player::Stop) 必须先调用 pkt_queue_->Abort() 唤醒它，
+    // 外部 (Player::stop) 必须先调用 pkt_queue_->Abort() 唤醒它，
     // 否则这里的 join 会死锁。
     if (thread_.joinable()) {
         thread_.join();
     }
 }
 
-void DemuxThread::Run() {
-    PacketItem pkt;
-
+void DemuxThread::run() {
     while (running_) {
-        if (!pkt.packet) {
-            pkt.packet = MakeAvPacketPtr();
-        }
+        PacketItem pkt;
+
+        pkt.packet = MakeAvPacketPtr();
 
         // 读包
         int ret = demuxer_->ReadPacket(&pkt);
@@ -53,7 +51,7 @@ void DemuxThread::Run() {
             if (on_finished_) {
                 on_finished_();
             }
-            std::cout << "[DemuxThread] Reached end of file or error." << std::endl;
+            LOG_WARN(LM::kThread, "Reached end of file or error.");
             break;
         }
 
@@ -68,7 +66,7 @@ void DemuxThread::Run() {
             }
         }
     }
-    std::cout << "[DemuxThread] Thread exiting..." << std::endl;
+    LOG_INFO(LM::kThread, "DemuxThread is exiting...");
 }
 
 } // namespace my_video_player
