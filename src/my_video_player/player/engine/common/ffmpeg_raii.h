@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "player/engine/common/error_util.h"
+#include "log/my_spdlog.h"
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -91,8 +92,8 @@ inline AvFormatContextPtr OpenInput(const char* url) {
     int ret = avformat_open_input(&ctx, url, nullptr, nullptr);
 
     if (ret < 0) {
-        // 打印具体的错误信息（利用你之前的 error_util）
-        std::cout << "Could not open input: " << url << " Reason: " << AvErrorToString(ret);
+        
+        LOG_ERROR(LM::kFFmpeg, "Could not open input: {} , reason is: {}", url, av_error2string(ret));
         return AvFormatContextPtr(nullptr);
     }
 

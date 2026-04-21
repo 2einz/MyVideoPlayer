@@ -28,14 +28,14 @@ int Player::Open(const std::string& url) {
     if (!v_params) {
         LOG_ERROR(LM::kPlayer, "Could not find video codec parameters.");
         media_state_.Dispatch(Action::kError);
-        return -1; // 报错返回 -2
+        return -1;
     }
 
     ret = video_decoder_.Init(v_params);
     if (ret < 0) {
         LOG_ERROR(LM::kPlayer, "Video decoder init failed: ");
         media_state_.Dispatch(Action::kError);
-        return -ret; // 报错返回 -3
+        return -ret; 
     }
 
     media_state_.Dispatch(Action::kPrepared);

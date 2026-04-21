@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+#include <log/my_spdlog.h>
+
 namespace my_video_player {
 
 int Demuxer::Open(const std::string& url) {
@@ -14,22 +16,20 @@ int Demuxer::Open(const std::string& url) {
     // 读取数据流
     int ret = avformat_find_stream_info(format_ctx_.get(), nullptr);
     if (ret < 0) {
-        std::cerr << "Find Stream info failed: " << AvErrorToString(ret) << std::endl;
+        LOG_ERROR(LM::kDemux, "Find Stream info failed: ", av_error2string(ret));
         return ret;
     }
 
-    /*
-        在Summary.md中2.2部分
-    */
     video_stream_index_ = av_find_best_stream(format_ctx_.get(), AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
 
     audio_stream_index_ = av_find_best_stream(format_ctx_.get(), AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
 
     if (video_stream_index_ < 0 && audio_stream_index_ < 0) {
-        std::cerr << "No usable video/audio stream in: " << url_ << std::endl;
+        LOG_ERROR(LM::kDemux, "No usable video/audio stream in: ", url_);
         return AVERROR_STREAM_NOT_FOUND;
     }
 
+    // 打印格式
     av_dump_format(format_ctx_.get(), 0, url_.c_str(), 0);
 
     return 0;

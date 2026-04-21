@@ -13,24 +13,29 @@
 namespace my_log {
 
 // ================= 模块定义 =================
-enum class LogModule { kPlayer, kDemux, kDecode, kThread, kUI, kController, kMediaState };
+#define LOG_MODULE(X)                                                                                                  \
+    X(kPlayer)                                                                                                         \
+    X(kDemux)                                                                                                          \
+    X(kDecode)                                                                                                         \
+    X(kThread)                                                                                                         \
+    X(kUI)                                                                                                             \
+    X(kController)                                                                                                     \
+    X(kMediaState)                                                                                                     \
+    X(kFFmpeg)
 
-inline const char* module_to_str(LogModule m) {
+enum class LogModule {
+#define X(name) name,
+    LOG_MODULE(X)
+#undef X
+};
+
+inline const char* module2str(LogModule m) {
     switch (m) {
-    case LogModule::kPlayer:
-        return "Player";
-    case LogModule::kDemux:
-        return "Demux";
-    case LogModule::kDecode:
-        return "Decode";
-    case LogModule::kThread:
-        return "Thread";
-    case LogModule::kUI:
-        return "UI";
-    case LogModule::kMediaState:
-        return "MediaState";
-    case LogModule::kController:
-        return "Controller";
+#define X(name)                                                                                                        \
+    case LogModule::name:                                                                                              \
+        return #name + 1;
+        LOG_MODULE(X)
+#undef X
     default:
         return "Unknown";
     }
@@ -116,14 +121,14 @@ inline const char* short_file(const char* file) {
     do {                                                                                                               \
         if (auto l = my_log::get_logger())                                                                             \
             l->log(spdlog::source_loc{short_file(__FILE__), __LINE__, SPDLOG_FUNCTION}, spdlog::level::trace,          \
-                   "[{}] " fmt, my_log::module_to_str(module), ##__VA_ARGS__);                                         \
+                   "[{}] " fmt, my_log::module2str(module), ##__VA_ARGS__);                                            \
     } while (0)
 
 #define LOG_DEBUG(module, fmt, ...)                                                                                    \
     do {                                                                                                               \
         if (auto l = my_log::get_logger())                                                                             \
             l->log(spdlog::source_loc{short_file(__FILE__), __LINE__, SPDLOG_FUNCTION}, spdlog::level::debug,          \
-                   "[{}] " fmt, my_log::module_to_str(module), ##__VA_ARGS__);                                         \
+                   "[{}] " fmt, my_log::module2str(module), ##__VA_ARGS__);                                            \
     } while (0)
 
 #else
@@ -139,26 +144,26 @@ inline const char* short_file(const char* file) {
     do {                                                                                                               \
         if (auto l = my_log::get_logger())                                                                             \
             l->log(spdlog::source_loc{short_file(__FILE__), __LINE__, SPDLOG_FUNCTION}, spdlog::level::info,           \
-                   "[{}] " fmt, my_log::module_to_str(module), ##__VA_ARGS__);                                         \
+                   "[{}] " fmt, my_log::module2str(module), ##__VA_ARGS__);                                            \
     } while (0)
 
 #define LOG_WARN(module, fmt, ...)                                                                                     \
     do {                                                                                                               \
         if (auto l = my_log::get_logger())                                                                             \
             l->log(spdlog::source_loc{short_file(__FILE__), __LINE__, SPDLOG_FUNCTION}, spdlog::level::warn,           \
-                   "[{}] " fmt, my_log::module_to_str(module), ##__VA_ARGS__);                                         \
+                   "[{}] " fmt, my_log::module2str(module), ##__VA_ARGS__);                                            \
     } while (0)
 
 #define LOG_ERROR(module, fmt, ...)                                                                                    \
     do {                                                                                                               \
         if (auto l = my_log::get_logger())                                                                             \
             l->log(spdlog::source_loc{short_file(__FILE__), __LINE__, SPDLOG_FUNCTION}, spdlog::level::err,            \
-                   "[{}] " fmt, my_log::module_to_str(module), ##__VA_ARGS__);                                         \
+                   "[{}] " fmt, my_log::module2str(module), ##__VA_ARGS__);                                            \
     } while (0)
 
 #define LOG_CRITICAL(module, fmt, ...)                                                                                 \
     do {                                                                                                               \
         if (auto l = my_log::get_logger())                                                                             \
             l->log(spdlog::source_loc{short_file(__FILE__), __LINE__, SPDLOG_FUNCTION}, spdlog::level::critical,       \
-                   "[{}] " fmt, my_log::module_to_str(module), ##__VA_ARGS__);                                         \
+                   "[{}] " fmt, my_log::module2str(module), ##__VA_ARGS__);                                            \
     } while (0)
