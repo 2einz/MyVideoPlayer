@@ -29,6 +29,22 @@ find_package(
 # 配置 FFmpeg 路径
 set(FFMPEG_DIR ${CMAKE_SOURCE_DIR}/3rdparty/ffmpeg)
 
+# spdlog
+set(SPDLOG_DIR ${CMAKE_SOURCE_DIR}/3rdparty/spdlog)
+
+if(EXISTS ${SPDLOG_DIR}/CMakeLists.txt)
+    # 阻止 spdlog 触发 install 命令
+    set(SPDLOG_INSTALL
+        OFF
+        CACHE BOOL
+              ""
+              FORCE
+    )
+    add_subdirectory(${SPDLOG_DIR})
+else()
+    message(FATAL_ERROR "spdlog not found in ${SPDLOG_DIR}, please clone it first.")
+endif()
+
 # 进入子目录
 add_subdirectory(src/my_video_player)
 

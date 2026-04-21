@@ -50,8 +50,6 @@ void DemuxThread::Run() {
         if (ret < 0) {
             // 读到文件尾 或是 IO错误: 使用Close，允许解码线程把队列剩下的包读完
             pkt_queue_->Close();
-            media_state_->Dispatch(Action::kReachedEnd);
-
             if (on_finished_) {
                 on_finished_();
             }

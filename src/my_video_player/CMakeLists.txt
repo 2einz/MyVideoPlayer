@@ -3,6 +3,8 @@ set(RENDERER_DIR player/output)
 
 set(PROJECT_SOURCES
     main.cc
+    log/my_spdlog.h
+    # log/my_log_ini.h
     controller/controller.cc
     controller/controller.h
     player/player.cc
@@ -88,6 +90,7 @@ target_link_libraries(
             avutil
             swscale
             swresample
+            spdlog::spdlog
 )
 
 # 自动部署

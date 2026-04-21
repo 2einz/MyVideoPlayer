@@ -22,6 +22,7 @@ my_video_player/
 ├── bin/                            # 最终输出：exe、dll 等运行时文件
 ├── build/                          # CMake 编译临时文件目录
 ├── third_party/                    # 第三方依赖库
+│   ├── spdlog/
 │   └── ffmpeg/                     # FFmpeg SDK（include / lib / bin）
 └── src/                            # 源码主目录
     └── my_video_player/            # 顶级命名空间
@@ -32,9 +33,9 @@ my_video_player/
         ├── ui/                     # 【视图层】QML 界面与资源
         │   ├── assets/             # 图标、图片等资源
         │   └── main.qml            # 主界面
-        ├── utils/                  # 全局工具
-        │   ├── log.h
-        │   └── thread_safe_queue.h
+        ├── log/                    # 日志工具
+        │   ├── my_log_ini.h/       # 日志工具宏
+        │   └── my_spdlog.h
         └── player/                 # 【业务层】播放器中枢
             ├── media_state.h       # 播放器状态枚举
             ├── player.h            # 对外暴露接口
@@ -43,7 +44,8 @@ my_video_player/
             │   ├── common/
             │   │   ├── ffmpeg_raii.h
             │   │   ├── engine_types.h
-            │   │   └── error_util.h
+            │   │   ├── error_util.h
+            │   │   └── thread_safe_queue.h
             │   ├── demux/
             │   │   ├── demuxer.h
             │   │   └── demuxer.cc

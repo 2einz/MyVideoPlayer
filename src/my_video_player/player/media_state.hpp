@@ -5,33 +5,42 @@
 #include <iostream>
 #include <string>
 
+#include "log/my_spdlog.h"
+
 namespace my_video_player {
 
+#define STATE_LIST(X)                                                                                                  \
+    X(kIdle)                                                                                                           \
+    X(kLoading)                                                                                                        \
+    X(kPrepared)                                                                                                       \
+    X(kPlaying)                                                                                                        \
+    X(kPaused)                                                                                                         \
+    X(kSeeking)                                                                                                        \
+    X(kEnded)                                                                                                          \
+    X(kStopped)                                                                                                        \
+    X(kError)
+
 enum class State {
-    kIdle,     // 闲置 Idle 是“对象是否存在”的状态
-    kLoading,  // 打开文件（解封装中）
-    kPrepared, // 已准备好（获取到流信息）
-    kPlaying,  // 播放中
-    kPaused,   // 暂停
-    kSeeking,  // 正在跳转
-    kEnded,    // 播放结束
-    kStopped,  // 已停止
-    kError     // 发生错误 IO错误
+#define X(name) name,
+    STATE_LIST(X)
+#undef X
 };
 
+#define ACTION_LIST(X)                                                                                                 \
+    X(kOpen)                                                                                                           \
+    X(kPrepared)                                                                                                       \
+    X(kUserPlay)                                                                                                       \
+    X(kUserPause)                                                                                                      \
+    X(kUserStop)                                                                                                       \
+    X(kUserSeek)                                                                                                       \
+    X(kReachedSeekTarget)                                                                                              \
+    X(kReachedEnd)                                                                                                     \
+    X(kError)
+
 enum class Action {
-    kOpen,
-    kPrepared,
-
-    kUserPlay,
-    kUserPause,
-    kUserStop,
-    kUserSeek,
-
-    kReachedSeekTarget,
-
-    kReachedEnd,
-    kError
+#define X(name) name,
+    ACTION_LIST(X)
+#undef X
 };
 
 // 播放器状态中心
@@ -63,7 +72,7 @@ public:
         if (next != old) {
             state_.store(next);
         } else {
-            std::cerr << "[MediaState] Invalid transition:" << toString() << " action=" << static_cast<int>(action);
+            LOG_WARN(LM::kMediaState, "Invalid transition: {} action to {} action", state2string(), action2string(action));
         }
     }
 
@@ -86,26 +95,27 @@ public:
     }
 
     // DEBUG
-    std::string toString() const {
+    std::string state2string() const {
         switch (state_.load()) {
-        case State::kIdle:
-            return "Idle";
-        case State::kLoading:
-            return "Loading";
-        case State::kPlaying:
-            return "Playing";
-        case State::kPaused:
-            return "Paused";
-        case State::kStopped:
-            return "Stopped";
-        case State::kSeeking:
-            return "Seeking";
-        case State::kEnded:
-            return "Ended";
-        case State::kError:
-            return "Error";
+#define X(name)                                                                                                        \
+    case State::name:                                                                                                 \
+        return #name + 1;
+            STATE_LIST(X)
+#undef X
         default:
-            return "Unknown";
+            return "UnknownState";
+        }
+    }
+
+    std::string action2string(Action action) {
+        switch (action) {
+#define X(name)                                                                                                        \
+    case Action::name:                                                                                                 \
+        return #name + 1;
+            ACTION_LIST(X)
+#undef X
+        default:
+            return "UnknownAction";
         }
     }
 

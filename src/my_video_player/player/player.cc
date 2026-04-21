@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+#include <log/my_spdlog.h>
+
 extern "C" {
 #include <libavutil/rational.h>
 }
@@ -9,14 +11,14 @@ extern "C" {
 namespace my_video_player {
 
 int Player::Open(const std::string& url) {
-    std::cout << "[Player] Attempting to open: " << url << std::endl;
+    LOG_INFO(LM::kPlayer, "Attempting to open: {}", url);
 
     media_state_.Dispatch(Action::kOpen);
 
     // 打开文件
     int ret = demuxer_.Open(url);
     if (ret < 0) {
-        std::cerr << "[Player] Demuxer open failed: " << ret << std::endl;
+        LOG_ERROR(LM::kPlayer, "Demuxer open failed: ");
         media_state_.Dispatch(Action::kError);
         return -1;
     }
@@ -24,21 +26,21 @@ int Player::Open(const std::string& url) {
     // 初始化视频解码器
     AVCodecParameters* v_params = demuxer_.GetVideoCodecParameters();
     if (!v_params) {
-        std::cerr << "[Player] Could not find video codec parameters." << std::endl;
+        LOG_ERROR(LM::kPlayer, "Could not find video codec parameters.");
         media_state_.Dispatch(Action::kError);
         return -1; // 报错返回 -2
     }
 
     ret = video_decoder_.Init(v_params);
     if (ret < 0) {
-        std::cerr << "[Player] Video decoder init failed: " << ret << std::endl;
+        LOG_ERROR(LM::kPlayer, "Video decoder init failed: ");
         media_state_.Dispatch(Action::kError);
         return -ret; // 报错返回 -3
     }
 
     media_state_.Dispatch(Action::kPrepared);
 
-    std::cout << "[Player] Open success, Prepared." << std::endl;
+    LOG_INFO(LM::kPlayer, "Open success, Prepared.");
 
     return 0;
 }
@@ -73,7 +75,7 @@ void Player::Play() {
 
         StartInternalThreads();
 
-        std::cout << "[Player] Restarting from EOF." << std::endl;
+        LOG_INFO(LM::kPlayer, "Restarting from EOF.");
         return;
     }
 
@@ -95,15 +97,16 @@ void Player::Stop() {
     media_state_.Dispatch(Action::kUserStop);
 
     if (threads_running_) {
+        demux_thread_.Stop();
+
         video_pkt_queue_.Abort();
 
-        demux_thread_.Stop();
         video_decode_thread_.Stop();
 
         video_pkt_queue_.Restart();
 
         threads_running_ = false;
-        std::cout << "[Player] Stopped completely." << std::endl;
+        LOG_INFO(LM::kPlayer, "Stopped completely.");
     }
 }
 
@@ -122,7 +125,7 @@ void Player::Seek(double target_sec) {
 
     video_pkt_queue_.TryPush(PacketItem::CreateFlushPacket(new_serial), true);
 
-    std::cout << "[Player] Seek dispatched to " << target_sec << "s, serial=" << new_serial << std::endl;
+    LOG_INFO(LM::kPlayer, "Seek dispatched to {} s, serial= {}", target_sec, new_serial);
 }
 
 void Player::StartInternalThreads() {
@@ -147,7 +150,7 @@ void Player::StartInternalThreads() {
     video_decode_thread_.Start(&video_decoder_, &video_pkt_queue_, &media_state_, tb, &video_serial_, v_stream_idx);
 
     threads_running_ = true;
-    std::cout << "[Player] Internal threads started." << std::endl;
+    LOG_INFO(LM::kPlayer, "Internal threads started.");
 }
 
 } // namespace my_video_player

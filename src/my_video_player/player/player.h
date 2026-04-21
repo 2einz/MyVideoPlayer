@@ -6,6 +6,7 @@
 #include <memory>
 #include <functional>
 
+#include "log/my_spdlog.h"
 #include "player/media_state.hpp"
 #include "player/engine/common/engine_types.h"
 #include "player/engine/decode/video_decoder.h"

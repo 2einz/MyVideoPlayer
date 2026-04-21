@@ -6,6 +6,8 @@
 #include <QDirIterator>
 #include <QDebug>
 
+#include "log/my_spdlog.h"
+
 #include "controller/controller.h"
 #include "player/output/qt/video_renderer_qimage.h"
 
@@ -13,6 +15,8 @@
 using namespace Qt::StringLiterals;
 
 int main(int argc, char* argv[]) {
+    my_log::init();
+
     QGuiApplication app(argc, argv);
 
     // // 在 main 函数中的 QGuiApplication 之后添加：
