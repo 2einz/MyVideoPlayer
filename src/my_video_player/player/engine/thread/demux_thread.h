@@ -5,17 +5,20 @@
 #include <atomic>
 #include <functional>
 
+#include "player/engine/thread/my_thread.h"
+
 namespace my_video_player {
+
 class Demuxer;
 class VideoPacketQueue;
 class MediaState;
 
 using FinishCallback = std::function<void()>;
 
-class DemuxThread {
+class DemuxThread : public MyThread{
 public:
     DemuxThread() = default;
-    ~DemuxThread();
+    ~DemuxThread() override = default;
 
     DemuxThread(const DemuxThread&) = delete;
     DemuxThread& operator=(const DemuxThread&) = delete;
@@ -27,25 +30,27 @@ public:
      * @param state 全局状态机
      * @param serial 播放器维护的全局序列号指针（用于 Seek 时打戳）
      */
-    void Start(Demuxer*, VideoPacketQueue*, MediaState*, std::atomic<int>*, FinishCallback);
+    void Start(Demuxer* demuxer,
+        VideoPacketQueue* pkt_queue,
+        MediaState* state,
+        std::atomic<int>* serial,
+        FinishCallback cb);
 
     /**
      * @brief 停止线程
      * 注意：调用前，Player 应该先调用 pkt_queue_->Abort()
      * 以确保线程不会死锁在 Push 上。
      */
-    void stop();
+    void stop() override;
+
+protected:
+    void run() override;
 
 private:
-    void run();
-
     Demuxer* demuxer_ = nullptr;
     VideoPacketQueue* pkt_queue_ = nullptr;
     MediaState* media_state_ = nullptr;
     std::atomic<int>* serial_ = nullptr;
-
-    std::atomic<bool> running_{false};
-    std::thread thread_;
 
     FinishCallback on_finished_;
 };

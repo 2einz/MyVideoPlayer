@@ -16,6 +16,7 @@ set(PROJECT_SOURCES
     ${ENGINE_DIR}/utils/thread_safe_queue.hpp
     ${ENGINE_DIR}/demux/demuxer.cc
     ${ENGINE_DIR}/demux/demuxer.h
+    ${ENGINE_DIR}/thread/my_thread.h
     ${ENGINE_DIR}/thread/demux_thread.h
     ${ENGINE_DIR}/thread/demux_thread.cc
     ${ENGINE_DIR}/thread/video_decode_thread.h

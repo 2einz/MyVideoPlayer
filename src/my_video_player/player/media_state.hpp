@@ -67,12 +67,17 @@ public:
     // --- Action ---
     void Dispatch(Action action) {
         State old = state_.load();
+
+        // 更新用户意图
+        CaptureIntent(old, action);
+
         State next = Redux(old, action);
 
         if (next != old) {
             state_.store(next);
         } else {
-            LOG_WARN(LM::kMediaState, "Invalid transition: {} action to {} action", state2string(), action2string(action));
+            LOG_WARN(LM::kMediaState, "Invalid transition: {} action to {} action", state2string(),
+                     action2string(action));
         }
     }
 
@@ -98,7 +103,7 @@ public:
     std::string state2string() const {
         switch (state_.load()) {
 #define X(name)                                                                                                        \
-    case State::name:                                                                                                 \
+    case State::name:                                                                                                  \
         return #name + 1;
             STATE_LIST(X)
 #undef X
@@ -175,9 +180,14 @@ private:
             break;
 
         case State::kSeeking:
+            if (action == Action::kUserSeek)
+                return State::kSeeking;
 
             if (action == Action::kReachedSeekTarget)
-                return State::kPlaying;
+                return play_intent_.load() ? State::kPlaying : State::kPaused;
+
+            if (action == Action::kReachedEnd)
+                return State::kEnded;
 
             if (action == Action::kUserPause)
                 return State::kPaused;
@@ -206,6 +216,9 @@ private:
             if (action == Action::kOpen)
                 return State::kLoading;
 
+            if (action == Action::kUserSeek)
+                return State::kSeeking;
+            
             break;
 
         case State::kError:
@@ -220,11 +233,45 @@ private:
     // --- 控制请求 (Flags) ---
     bool seek_requested() const { return seek_requested_.load(); }
 
+    void CaptureIntent(State current, Action action) {
+        switch (action) {
+        case Action::kUserPlay:
+        case Action::kOpen:
+            // 打开文件和点播放，都视为“希望播放”
+            play_intent_.store(true);
+            break;
+
+        case Action::kUserPause:
+        case Action::kUserStop:
+        case Action::kError:
+            // 暂停、停止、错误，都视为“不再播放”
+            play_intent_.store(false);
+            break;
+
+        case Action::kUserSeek:
+            // 核心逻辑：Seek时的意图取决于发起Seek的那一刻
+            // 如果是从播放状态点的，Seek完继续播；如果是从暂停点的，Seek完保持停。
+            if (current == State::kPlaying) {
+                play_intent_.store(true);
+            }
+            else if (current == State::kPaused) {
+                play_intent_.store(false);
+            }
+            // 如果当前已经是 kSeeking 状态（连续滑动进度条），则不更新意图，保持上一次的判断
+            break;
+
+        default:
+            // kPrepared, kReachedSeekTarget, kReachedEnd 等内部动作不改变用户意图
+            break;
+        }
+    }
 private:
     std::atomic<State> state_;
 
     std::atomic_bool seek_requested_;
     std::atomic<double> seek_position_;
+
+    std::atomic<bool> play_intent_{false}; // 用户的播放意图 true表示用户希望播放
 };
 
 } // namespace my_video_player

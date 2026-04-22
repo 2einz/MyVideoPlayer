@@ -84,14 +84,10 @@ Window {
         id: windowDragArea
         anchors.fill: parent
         z: -1
-        // 【核心修改 3】非全屏且非最大化时才允许拖动
         enabled: !isFullScreen && !isCustomMaximized
         onPressed: root.startSystemMove()
     }
 
-    // ==============================================
-    // 【核心修改 4】纯手动最大化/还原逻辑，彻底避开底层 Bug
-    // ==============================================
     function toggleCustomMaximize() {
         if (isFullScreen)
             return; // 全屏时禁止操作
@@ -361,7 +357,7 @@ Window {
 
                         onMoved: {
                             if (typeof playerCtrl != "undefined") {
-                                playerCtrl.progress = value;
+                                playerCtrl.SeekToProgress(value)
                             }
                         }
                     }

@@ -11,18 +11,21 @@ extern "C" {
 #include <libavutil/rational.h>
 }
 
+#include "player/engine/thread/my_thread.h"
+
 namespace my_video_player {
 
 class VideoDecoder;
 class VideoPacketQueue;
 class MediaState;
 struct FrameItem;
-class VideoDecodeThread {
+
+class VideoDecodeThread : public MyThread {
 public:
     using FrameCallback = std::function<void(const FrameItem&)>;
 
     VideoDecodeThread() = default;
-    ~VideoDecodeThread();
+    ~VideoDecodeThread() override = default;
 
     VideoDecodeThread(const VideoDecodeThread&) = delete;
     VideoDecodeThread& operator=(const VideoDecodeThread&) = delete;
@@ -49,12 +52,16 @@ public:
      */
     void wake_up();
 
-    void stop();
+    void stop() override;
 
     void set_frame_callback(FrameCallback cb) { on_frame_ready_ = std::move(cb); }
 
+protected:
+    void run() override;
+
 private:
-    void run();
+
+    void render_and_sync(FrameItem& frame, double& last_pts, std::chrono::steady_clock::time_point& last_render_time);
 
 private:
     VideoDecoder* decoder_ = nullptr;
@@ -66,8 +73,6 @@ private:
     int video_stream_index_ = -1;
 
     FrameCallback on_frame_ready_;
-    std::atomic<bool> running_{false};
-    std::thread thread_;
 
     std::mutex pause_mutex_;
     std::condition_variable pause_cv_;

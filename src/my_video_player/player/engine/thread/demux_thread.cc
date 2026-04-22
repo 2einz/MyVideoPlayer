@@ -7,9 +7,6 @@
 #include "player/media_state.hpp"
 
 namespace my_video_player {
-DemuxThread::~DemuxThread() {
-    stop();
-}
 
 void DemuxThread::Start(
     Demuxer* demuxer, VideoPacketQueue* pkt_queue, MediaState* state, std::atomic<int>* serial, FinishCallback cb) {
@@ -19,22 +16,12 @@ void DemuxThread::Start(
     serial_ = serial;
     on_finished_ = std::move(cb);
 
-    running_ = true;
-    thread_ = std::thread(&DemuxThread::run, this);
+    // 调用基类的启动
+    this->start();
 }
 
 void DemuxThread::stop() {
-    if (!running_)
-        return;
-
-    running_ = false;
-
-    // 注意：如果线程正阻塞在 pkt_queue_->Push() 中，
-    // 外部 (Player::stop) 必须先调用 pkt_queue_->Abort() 唤醒它，
-    // 否则这里的 join 会死锁。
-    if (thread_.joinable()) {
-        thread_.join();
-    }
+    MyThread::stop();
 }
 
 void DemuxThread::run() {

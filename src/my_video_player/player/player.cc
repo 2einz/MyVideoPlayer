@@ -65,22 +65,18 @@ void Player::Play() {
     if (media_state_.IsEnded()) {
         LOG_INFO(LM::kPlayer, "Trying to restart from EOF...");
 
-        // 回收线程
-        if (threads_running_) {
-            demux_thread_.stop();        // 内部会调用 join()
-            video_decode_thread_.stop(); // 内部会调用 join()
-            threads_running_ = false;
-        }
-
-        // 执行到 0 秒的 Seek 操作
-        media_state_.Seek(0.0); // 状态先切到 Seeking (变灰)
+        Stop();
 
         video_pkt_queue_.Restart();
         video_pkt_queue_.Flush();
 
         // 重新拉起底层线程
         int new_serial = ++video_serial_;
-        demuxer_.Seek(0.0);
+        if (demuxer_.Seek(0.0) < 0) {
+            LOG_ERROR(LM::kPlayer, "Failed to seek to beginning.");
+        }
+
+        media_state_.Seek(0.0);
 
         video_pkt_queue_.TryPush(PacketItem::CreateFlushPacket(new_serial), true);
 
@@ -123,19 +119,34 @@ void Player::Stop() {
 }
 
 void Player::Seek(double target_sec) {
-    media_state_.Seek(target_sec);
+    bool engine_dead = !demux_thread_.is_running() || !video_decode_thread_.is_running();
 
-    if (!threads_running_)
-        return;
-
-    // 增加序列号
     int new_serial = ++video_serial_;
+
+    // Case A: 视频结束，或者线程没有跑
+    if (media_state_.IsEnded() || engine_dead) {
+        LOG_INFO(LM::kPlayer, "Engine is inactive. Restarting for Seek at {}s...", target_sec);
+
+        Stop();
+
+        demuxer_.Seek(target_sec);
+        media_state_.Seek(target_sec);
+
+        // 重启时也必须塞入 Flush 包，否则解码线程不知道要处理 Seek 逻辑
+        video_pkt_queue_.TryPush(PacketItem::CreateFlushPacket(new_serial), true);
+
+        StartInternalThreads();
+        return;
+    }
 
     video_pkt_queue_.Flush();
 
     demuxer_.Seek(target_sec);
 
     video_pkt_queue_.TryPush(PacketItem::CreateFlushPacket(new_serial), true);
+
+    media_state_.Seek(target_sec);
+    video_decode_thread_.wake_up(); // 无论是否暂停，都需要唤醒解码线程去处理Flush包和数据
 
     LOG_INFO(LM::kPlayer, "Seek dispatched to {} s, serial= {}", target_sec, new_serial);
 }

@@ -10,17 +10,14 @@
 
 namespace my_video_player {
 
-VideoDecodeThread::~VideoDecodeThread() {
-    stop();
-}
-
 void VideoDecodeThread::start(VideoDecoder* decoder,
                               VideoPacketQueue* pkt_queue,
                               MediaState* state,
                               AVRational time_base,
                               std::atomic<int>* serial,
                               int stream_index) {
-    stop();
+    this->stop();
+
     decoder_ = decoder;
     pkt_queue_ = pkt_queue;
     media_state_ = state;
@@ -28,24 +25,17 @@ void VideoDecodeThread::start(VideoDecoder* decoder,
     time_base_ = time_base;
     video_stream_index_ = stream_index;
 
-    running_ = true;
-    thread_ = std::thread(&VideoDecodeThread::run, this);
+    MyThread::start();
 }
 
 void VideoDecodeThread::stop() {
-    if (!running_)
-        return;
-    running_ = false;
-
     pause_cv_.notify_all();
 
     if (pkt_queue_) {
         pkt_queue_->Abort();
     }
 
-    if (thread_.joinable()) {
-        thread_.join();
-    }
+    MyThread::stop();
 }
 
 void VideoDecodeThread::wake_up() {
@@ -60,12 +50,18 @@ void VideoDecodeThread::run() {
     double accurate_seek_target = -1.0;
     bool is_seeking_exact = false;
 
-    LOG_INFO(LM::kThread, "VideoDecodeThread has been Started, Waiting for packets...");
+    FrameItem last_frame; // 保存底帧
+    bool has_last_frame = false;
 
+
+    LOG_INFO(LM::kThread, "VideoDecodeThread has been Started.");
+
+    // Main Loop
     while (running_) {
         if (media_state_->IsStopped() || media_state_->HasError())
             break;
 
+        // Pause processing
         if (media_state_->IsPaused()) {
             std::unique_lock<std::mutex> lock(pause_mutex_);
             pause_cv_.wait(lock, [this]() { return !media_state_->IsPaused() || !running_; });
@@ -83,6 +79,7 @@ void VideoDecodeThread::run() {
             is_seeking_exact = true;
             last_pts = -1.0;
             decoder_->Flush();
+            has_last_frame = false;
             continue;
         }
 
@@ -96,12 +93,16 @@ void VideoDecodeThread::run() {
 
         decoder_->SendPacket(pkt);
 
+        // 掏出当前包能解出来的所有帧
         while (running_) {
             FrameItem frame;
-            if (decoder_->ReceiveFrame(&frame, time_base_) != 0) {
-                break; // 没有更多帧了，拿下一个包
-            }
+            if (decoder_->ReceiveFrame(&frame, time_base_) != 0) break;
 
+            last_frame.assign_from(frame); // 实时更新最后一帧
+            has_last_frame = true;
+
+
+            // 精确 Seek
             if (is_seeking_exact) {
                 if (frame.pts < accurate_seek_target)
                     continue;
@@ -109,113 +110,101 @@ void VideoDecodeThread::run() {
                 media_state_->Dispatch(Action::kReachedSeekTarget);
             }
 
-            auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now().time_since_epoch()
-            ).count() % 1000000;
-
-
-            LOG_INFO(LM::kThread, "Render PTS: {}, Now_ms: {}", frame.pts, now_ms);
-
-            if (on_frame_ready_) {
-                on_frame_ready_(frame);
-            }
-
-            now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now().time_since_epoch()
-            ).count() % 1000000;
-
-
-            LOG_INFO(LM::kThread, "Render PTS: {}, Now_ms: {}", frame.pts, now_ms);
-            // 帧率控制
-            if (last_pts >= 0) {
-                double diff = frame.pts - last_pts;
-                if (diff > 0 && diff < 1.0) { // 合理的帧间距
-                    auto delay = std::chrono::duration_cast<std::chrono::microseconds>(
-                        std::chrono::duration<double>(diff));
-
-                    auto target_time = last_render_time + delay;
-                    auto now = std::chrono::steady_clock::now();
-
-                    // 【核心修复】：如果目标时间比现在早了 100ms 以上，说明追不上了
-                    if (now > target_time + std::chrono::milliseconds(100)) {
-                        // 记录一下，方便调试
-                         LOG_DEBUG(LM::kThread, "Too late! Resetting clock. PTS: {}", frame.pts);
-                        last_render_time = now; // 强制重置为当前时间
-                    }
-                    else {
-                        // 只有在没迟到太久的情况下，才进行精准休眠
-                        std::this_thread::sleep_until(target_time);
-                        last_render_time = target_time; // 保持理论时间轴的严格递增
-                    }
-                }
-                else {
-                    // 如果 diff 异常（比如 PTS 跳变），立刻同步到当前时间
-                    last_render_time = std::chrono::steady_clock::now();
-                }
-            }
-            else {
-                // 第一帧，直接记录起始时间
-                last_render_time = std::chrono::steady_clock::now();
-            }
-            last_pts = frame.pts;
+            render_and_sync(frame, last_pts, last_render_time);
         }
-    } //
+    }
 
-    if (!media_state_->IsStopped() && !media_state_->HasError()) {
-        LOG_INFO(LM::kThread, "VideoDecodeThread is draining decoder...");
+    // Drain phase
+    bool can_drain = running_ &&
+        !media_state_->IsStopped() &&
+        !media_state_->IsPaused() &&
+        !media_state_->IsSeeking() &&
+        !media_state_->HasError();
 
-        // 发送空包告诉解码器：没有数据了，把肚子里的存货全吐出来
-        PacketItem null_pkt;
-        null_pkt.packet = nullptr;
-        decoder_->SendPacket(null_pkt);
+    if (can_drain) {
+        LOG_INFO(LM::kThread, "Main loop end, entering final drain phase.");
+
+        decoder_->SendPacket(PacketItem()); // 传空包
 
         while (running_) {
             FrameItem frame;
+
+            //int ret = decoder_->ReceiveFrame(&frame, time_base_);
+
+            //if (ret == AVERROR_EOF)
+            //    break;
+            //if (ret < 0)
+            //    break;
+
             if (decoder_->ReceiveFrame(&frame, time_base_) != 0) break;
 
-            if (on_frame_ready_) {
-                on_frame_ready_(frame);
-            }
+            last_frame.assign_from(frame); // 即使在 Drain 阶段也更新最后一帧
+            has_last_frame = true;
 
-            // 注意：排空出来的最后几帧也需要控制播放速度，否则会瞬间闪过去
-            if (last_pts >= 0) {
-                double diff = frame.pts - last_pts;
-                if (diff > 0 && diff < 1.0) { // 合理的帧间距
-                    auto delay = std::chrono::duration_cast<std::chrono::microseconds>(
-                        std::chrono::duration<double>(diff));
-
-                    auto target_time = last_render_time + delay;
-                    auto now = std::chrono::steady_clock::now();
-
-                    // 【核心修复】：如果目标时间比现在早了 100ms 以上，说明追不上了
-                    if (now > target_time + std::chrono::milliseconds(100)) {
-                        // 记录一下，方便调试
-                         LOG_DEBUG(LM::kThread, "Too late! Resetting clock. PTS: {}", frame.pts);
-                        last_render_time = now; // 强制重置为当前时间
-                    }
-                    else {
-                        // 只有在没迟到太久的情况下，才进行精准休眠
-                        std::this_thread::sleep_until(target_time);
-                        last_render_time = target_time; // 保持理论时间轴的严格递增
-                    }
-                }
-                else {
-                    // 如果 diff 异常（比如 PTS 跳变），立刻同步到当前时间
-                    last_render_time = std::chrono::steady_clock::now();
-                }
+            if (is_seeking_exact) {
+                //if (frame.pts < accurate_seek_target)
+                //    continue;
+                is_seeking_exact = false;
+                media_state_->Dispatch(Action::kReachedSeekTarget);
             }
-            else {
-                // 第一帧，直接记录起始时间
-                last_render_time = std::chrono::steady_clock::now();
-            }
-            last_pts = frame.pts;
+            render_and_sync(frame, last_pts, last_render_time);
         }
 
-        LOG_INFO(LM::kThread, "Playback finished naturally.");
+        // EOF 后的保底逻辑
+        if (is_seeking_exact) {
+            if (has_last_frame && on_frame_ready_) {
+                LOG_WARN(LM::kThread, "Seek never reached target! Target: {}, Last PTS: {}",
+                    accurate_seek_target, last_pts);
+
+                on_frame_ready_(last_frame); // 强行画最后一帧
+                LOG_INFO(LM::kThread, "Seek target exceeded EOF, rendering last frame.");
+            }
+            is_seeking_exact = false;
+            media_state_->Dispatch(Action::kReachedSeekTarget);
+        }
+
+        LOG_INFO(LM::kThread, "Playback finished naturally");
         media_state_->Dispatch(Action::kReachedEnd);
     }
 
+    if (media_state_->IsSeeking()) {
+        is_seeking_exact = false;
+        // 只有没停止时才 Dispatch，防止 Stopped -> ReachedSeekTarget 警告
+        if (!media_state_->IsStopped()) {
+            media_state_->Dispatch(Action::kReachedSeekTarget);
+        }
+    }
+
     LOG_INFO(LM::kThread, "VideoDecodeThread is exiting...");
+}
+
+void VideoDecodeThread::render_and_sync(FrameItem& frame,
+                                        double& last_pts,
+                                        std::chrono::steady_clock::time_point& last_render_time) {
+    if (on_frame_ready_) {
+        on_frame_ready_(frame);
+    }
+
+    if (last_pts >= 0) {
+        double diff = frame.pts - last_pts;
+        if (diff >= 0 && diff < 1.0) {
+            auto delay = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::duration<double>(diff));
+            auto target_time = last_render_time + delay;
+            auto now = std::chrono::steady_clock::now();
+
+            if (now > target_time + std::chrono::milliseconds(100)) {
+                last_render_time = now;
+            } else {
+                std::this_thread::sleep_until(target_time);
+                last_render_time = target_time;
+            }
+        } else {
+            last_render_time = std::chrono::steady_clock::now();
+        }
+    } else {
+        last_render_time = std::chrono::steady_clock::now();
+    }
+    last_pts = frame.pts;
 }
 
 } // namespace my_video_player
