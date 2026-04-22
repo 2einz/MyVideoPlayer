@@ -52,6 +52,12 @@ public:
 private:
     void StartInternalThreads(); // 仅在第一次调用
 
+    void PrepareForRestart(double seek_target);
+
+    int InitDecoder();
+
+    int OpenFile(const std::string& url);
+
 private:
     std::string last_url_;
 

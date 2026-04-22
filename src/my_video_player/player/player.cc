@@ -17,14 +17,16 @@ int Player::Open(const std::string& url) {
 
     media_state_.Dispatch(Action::kOpen);
 
-    // 打开文件
-    int ret = demuxer_.Open(url);
-    if (ret < 0) {
-        LOG_ERROR(LM::kPlayer, "Demuxer open failed: ");
-        media_state_.Dispatch(Action::kError);
-        return -1;
-    }
+    OpenFile(url);
 
+    InitDecoder();
+
+    LOG_INFO(LM::kPlayer, "Open success, current state is prepared.");
+
+    return 0;
+}
+
+int Player::InitDecoder() {
     // 初始化视频解码器
     AVCodecParameters* v_params = demuxer_.GetVideoCodecParameters();
     if (!v_params) {
@@ -33,18 +35,27 @@ int Player::Open(const std::string& url) {
         return -1;
     }
 
-    ret = video_decoder_.Init(v_params);
+    int ret = video_decoder_.Init(v_params);
     if (ret < 0) {
         LOG_ERROR(LM::kPlayer, "Video decoder init failed.");
         media_state_.Dispatch(Action::kError);
-        return -ret; 
+        return ret;
+    }
+
+    return ret;
+}
+int Player::OpenFile(const std::string& url) {
+    // 打开文件
+    int ret = demuxer_.Open(url);
+    if (ret < 0) {
+        LOG_ERROR(LM::kPlayer, "Demuxer open failed: ");
+        media_state_.Dispatch(Action::kError);
+        return -1;
     }
 
     media_state_.Dispatch(Action::kPrepared);
 
-    LOG_INFO(LM::kPlayer, "Open success, current state is prepared.");
-
-    return 0;
+    return ret;
 }
 
 double Player::GetDuration() const {
@@ -59,6 +70,7 @@ double Player::GetDuration() const {
 AVCodecParameters* Player::GetVideoCodecParams() {
     return demuxer_.GetVideoCodecParameters();
 }
+
 const AVCodecParameters* Player::GetVideoCodecParams() const {
     return demuxer_.GetVideoCodecParameters();
 }
@@ -67,20 +79,7 @@ void Player::Play() {
     if (media_state_.IsEnded()) {
         LOG_INFO(LM::kPlayer, "Trying to restart from EOF...");
 
-        Stop();
-
-        video_pkt_queue_.flush();
-        video_pkt_queue_.reset();
-
-        // 重新拉起底层线程
-        int new_serial = ++video_serial_;
-        if (demuxer_.Seek(0.0) < 0) {
-            LOG_ERROR(LM::kPlayer, "Failed to seek to beginning.");
-        }
-
-        media_state_.Seek(0.0);
-
-        video_pkt_queue_.try_push(PacketItem::CreateFlushPacket(new_serial), true);
+        PrepareForRestart(0.0);
 
         StartInternalThreads();
 
@@ -88,6 +87,7 @@ void Player::Play() {
         return;
     }
 
+    // 正常流程
     media_state_.Dispatch(Action::kUserPlay);
 
     // 如果底层线程还没启动，拉起线程
@@ -107,12 +107,11 @@ void Player::Stop() {
     media_state_.Dispatch(Action::kUserStop);
 
     if (threads_running_) {
+        // 停读包，再停解码
         demux_thread_.stop();
-
-        video_pkt_queue_.abort();
-
         video_decode_thread_.stop();
 
+        video_pkt_queue_.abort();
         video_pkt_queue_.reset();
 
         threads_running_ = false;
@@ -123,25 +122,20 @@ void Player::Stop() {
 void Player::Seek(double target_sec) {
     bool engine_dead = !demux_thread_.is_running() || !video_decode_thread_.is_running();
 
-    int new_serial = ++video_serial_;
-
     // Case A: 视频结束，或者线程没有跑
     if (media_state_.IsEnded() || engine_dead) {
         LOG_INFO(LM::kPlayer, "Engine is inactive. Restarting for Seek at {}s...", target_sec);
 
-        Stop();
-
-        demuxer_.Open(last_url_);
-        demuxer_.Seek(target_sec);
-
+        PrepareForRestart(target_sec);
+        media_state_.Dispatch(Action::kUserPlay);
         media_state_.Seek(target_sec);
-
-        // 重启时也必须塞入 Flush 包，否则解码线程不知道要处理 Seek 逻辑
-        video_pkt_queue_.try_push(PacketItem::CreateFlushPacket(new_serial), true);
 
         StartInternalThreads();
         return;
     }
+
+    // Case B: 正常运行
+    int new_serial = ++video_serial_;
 
     video_pkt_queue_.flush();
 
@@ -178,6 +172,24 @@ void Player::StartInternalThreads() {
 
     threads_running_ = true;
     LOG_INFO(LM::kPlayer, "Internal threads started.");
+}
+void Player::PrepareForRestart(double seek_target) {
+    Stop();
+
+    video_pkt_queue_.reset();
+
+    OpenFile(last_url_);
+    InitDecoder();
+
+    if (demuxer_.Seek(seek_target) < 0) {
+        LOG_ERROR(LM::kPlayer, "Seek failed during restart.");
+    }
+
+    int new_serial = ++video_serial_;
+
+    media_state_.Seek(seek_target);
+
+    video_pkt_queue_.try_push(PacketItem::CreateFlushPacket(new_serial), true);
 }
 
 } // namespace my_video_player

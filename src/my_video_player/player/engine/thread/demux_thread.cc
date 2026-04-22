@@ -29,8 +29,10 @@ void DemuxThread::stop() {
 
 void DemuxThread::run() {
     while (running_) {
-        if (media_state_->IsStopped())
+        if (media_state_->IsStopped()) {
+            LOG_INFO(LM::kThread, "DemuxThread: Stopped by media_state_");
             break;
+        }
 
         PacketItem pkt;
         pkt.packet = MakeAvPacketPtr();
