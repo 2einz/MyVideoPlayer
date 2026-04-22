@@ -53,6 +53,8 @@ private:
     void StartInternalThreads(); // 仅在第一次调用
 
 private:
+    std::string last_url_;
+
     // 核心组件
     MediaState media_state_;
     Demuxer demuxer_;

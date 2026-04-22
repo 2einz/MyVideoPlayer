@@ -13,6 +13,8 @@ namespace my_video_player {
 int Player::Open(const std::string& url) {
     LOG_INFO(LM::kPlayer, "Attempting to open: {}", url);
 
+    last_url_ = url;
+
     media_state_.Dispatch(Action::kOpen);
 
     // 打开文件
@@ -67,8 +69,8 @@ void Player::Play() {
 
         Stop();
 
-        video_pkt_queue_.Restart();
-        video_pkt_queue_.Flush();
+        video_pkt_queue_.flush();
+        video_pkt_queue_.reset();
 
         // 重新拉起底层线程
         int new_serial = ++video_serial_;
@@ -78,7 +80,7 @@ void Player::Play() {
 
         media_state_.Seek(0.0);
 
-        video_pkt_queue_.TryPush(PacketItem::CreateFlushPacket(new_serial), true);
+        video_pkt_queue_.try_push(PacketItem::CreateFlushPacket(new_serial), true);
 
         StartInternalThreads();
 
@@ -107,11 +109,11 @@ void Player::Stop() {
     if (threads_running_) {
         demux_thread_.stop();
 
-        video_pkt_queue_.Abort();
+        video_pkt_queue_.abort();
 
         video_decode_thread_.stop();
 
-        video_pkt_queue_.Restart();
+        video_pkt_queue_.reset();
 
         threads_running_ = false;
         LOG_INFO(LM::kPlayer, "Stopped completely.");
@@ -129,21 +131,23 @@ void Player::Seek(double target_sec) {
 
         Stop();
 
+        demuxer_.Open(last_url_);
         demuxer_.Seek(target_sec);
+
         media_state_.Seek(target_sec);
 
         // 重启时也必须塞入 Flush 包，否则解码线程不知道要处理 Seek 逻辑
-        video_pkt_queue_.TryPush(PacketItem::CreateFlushPacket(new_serial), true);
+        video_pkt_queue_.try_push(PacketItem::CreateFlushPacket(new_serial), true);
 
         StartInternalThreads();
         return;
     }
 
-    video_pkt_queue_.Flush();
+    video_pkt_queue_.flush();
 
     demuxer_.Seek(target_sec);
 
-    video_pkt_queue_.TryPush(PacketItem::CreateFlushPacket(new_serial), true);
+    video_pkt_queue_.try_push(PacketItem::CreateFlushPacket(new_serial), true);
 
     media_state_.Seek(target_sec);
     video_decode_thread_.wake_up(); // 无论是否暂停，都需要唤醒解码线程去处理Flush包和数据

@@ -56,17 +56,32 @@ int Demuxer::ReadPacket(PacketItem* packet_item) {
 
 int Demuxer::Seek(double seconds) {
     if (!format_ctx_)
-        return -1;
+        return AVERROR(EINVAL);
+
+    auto* stream = format_ctx_->streams[video_stream_index_];
 
     // 将秒转换为流的内部时间戳
-    int64_t target_pts =
-        av_rescale_q(seconds * AV_TIME_BASE, {1, AV_TIME_BASE}, format_ctx_->streams[video_stream_index_]->time_base);
+    // AV_TIME_BASE_Q = av_make_q(1, AV_TIME_BASE)
+    int64_t target_pts = av_rescale_q(static_cast<int64_t>(seconds * AV_TIME_BASE), AV_TIME_BASE_Q, stream->time_base);
 
     // 执行seek
     int ret =
         av_seek_frame(format_ctx_.get(), video_stream_index_, target_pts, AVSEEK_FLAG_BACKWARD | AVSEEK_FLAG_FRAME);
 
+    if (ret < 0) {
+        LOG_ERROR(LM::kDemux, "Seek failed: {}", av_error2string(ret));
+        return ret;
+    }
+
+    // 如果没有这个在读到EOF内部状态还是EOF
+    avformat_flush(format_ctx_.get());
+    LOG_INFO(LM::kDemux, "Seek success to {} sec (pts={})", seconds, target_pts);
+
     return ret;
+}
+
+void Demuxer::Close() {
+    format_ctx_.reset();
 }
 
 AVCodecParameters* Demuxer::GetVideoCodecParameters() const {

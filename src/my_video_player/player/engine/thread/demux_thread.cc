@@ -21,24 +21,35 @@ void DemuxThread::Start(
 }
 
 void DemuxThread::stop() {
+    if (pkt_queue_) {
+        pkt_queue_->abort();
+    }
     MyThread::stop();
 }
 
 void DemuxThread::run() {
     while (running_) {
-        PacketItem pkt;
+        if (media_state_->IsStopped())
+            break;
 
+        PacketItem pkt;
         pkt.packet = MakeAvPacketPtr();
 
         // 读包
         int ret = demuxer_->ReadPacket(&pkt);
-        if (ret < 0) {
-            // 读到文件尾 或是 IO错误: 使用Close，允许解码线程把队列剩下的包读完
-            pkt_queue_->Close();
+        if (ret == AVERROR_EOF) {
+            pkt_queue_->set_eof();
+
             if (on_finished_) {
                 on_finished_();
             }
+
             LOG_WARN(LM::kThread, "Reached end of file or error.");
+            break;
+        }
+
+        if (ret < 0) {
+            LOG_ERROR(LM::kThread, "Read error");
             break;
         }
 
@@ -48,7 +59,7 @@ void DemuxThread::run() {
             pkt.serial = serial_->load();
 
             // 压入队列
-            if (!pkt_queue_->Push(std::move(pkt))) {
+            if (!pkt_queue_->push(std::move(pkt))) {
                 break;
             }
         }

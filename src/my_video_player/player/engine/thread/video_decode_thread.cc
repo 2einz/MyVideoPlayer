@@ -32,7 +32,7 @@ void VideoDecodeThread::stop() {
     pause_cv_.notify_all();
 
     if (pkt_queue_) {
-        pkt_queue_->Abort();
+        pkt_queue_->abort();
     }
 
     MyThread::stop();
@@ -70,7 +70,7 @@ void VideoDecodeThread::run() {
 
         // 拿包：如果解复用器读到结尾关闭了队列，这里会返回 false，跳出 while 循环
         PacketItem pkt;
-        if (!pkt_queue_->Pop(pkt)) {
+        if (!pkt_queue_->pop(pkt)) {
             break;
         }
 

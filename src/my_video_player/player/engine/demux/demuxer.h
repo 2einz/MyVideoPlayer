@@ -31,6 +31,8 @@ public:
 
     int Seek(double seconds);
 
+    void Close();
+
     // Getters
     int video_stream_index() const { return video_stream_index_; }
     int audio_stream_index() const { return audio_stream_index_; }

@@ -7,28 +7,38 @@
 #include <condition_variable>
 
 namespace my_video_player {
+
+/*
+     running: 正常
+     eof: 停止生产 + 消费完再退出
+     abort: 立即停止一切
+ */
+
 template <typename T>
 class ThreadSafeQueue {
 public:
-    ThreadSafeQueue(size_t max_size = 256) : max_size_(max_size), state_(State::kRunning) {}
-    ~ThreadSafeQueue() { Abort(); }
+    ThreadSafeQueue(size_t max_size = 256) : max_size_(max_size), aborted_(false) {}
+
+    ~ThreadSafeQueue() { abort(); }
 
     ThreadSafeQueue(const ThreadSafeQueue&) = delete;
     ThreadSafeQueue& operator=(const ThreadSafeQueue&) = delete;
 
-    void Abort() {
+    void abort() {
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            state_ = State::kAborted;
+            aborted_ = true;
         }
         not_empty_cv_.notify_all();
         not_full_cv_.notify_all();
     }
 
-    void Restart() {
+    void reset() {
         std::lock_guard<std::mutex> lock(mutex_);
-        assert(state_ == State::kAborted && "Restart must be called after Abort and Thread Join!");
-        state_ = State::kRunning;
+
+        aborted_ = false;
+        eof_ = false;
+
         std::queue<T> empty_queue;
         std::swap(queue_, empty_queue);
 
@@ -36,26 +46,20 @@ public:
         not_full_cv_.notify_all();
     }
 
-    void Close() {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            state_ = State::kDraining;
-        }
-        not_full_cv_.notify_all();
-    }
-
     /**
      * @brief 阻塞式插入
      */
-    bool Push(T&& value) {
+    bool push(T&& value) {
         std::unique_lock<std::mutex> lock(mutex_);
-        not_full_cv_.wait(lock, [this]() { return queue_.size() < max_size_ || state_ != State::kRunning; });
+        not_full_cv_.wait(lock, [this]() { return queue_.size() < max_size_ || aborted_ || eof_; });
 
-        if (state_ != State::kRunning)
+        if (aborted_ || eof_)
             return false;
 
         bool was_empty = queue_.empty();
         queue_.push(std::move(value));
+
+        lock.unlock(); // 提前释放锁
 
         if (was_empty) {
             not_empty_cv_.notify_one();
@@ -63,15 +67,17 @@ public:
         return true;
     }
 
-    bool Push(const T& value) {
+    bool push(const T& value) {
         std::unique_lock<std::mutex> lock(mutex_);
-        not_full_cv_.wait(lock, [this]() { return queue_.size() < max_size_ || state_ != State::kRunning; });
+        not_full_cv_.wait(lock, [this]() { return queue_.size() < max_size_ || aborted_ || eof_; });
 
-        if (state_ != State::kRunning)
+        if (aborted_ || eof_)
             return false;
 
         bool was_empty = queue_.empty();
         queue_.push(value);
+
+        lock.unlock();
 
         if (was_empty) {
             not_empty_cv_.notify_one();
@@ -85,20 +91,21 @@ public:
      *                         true: 用于视频帧队列（防止延迟累积，必须追上最新画面）
      *                         false: 用于音频包队列（音频不能丢，丢了会爆音，直接返回 false）
      */
-    bool TryPush(T&& value, bool drop_old_if_full = false) {
-        std::lock_guard<std::mutex> lock(mutex_);
+    bool try_push(T&& value, bool drop_old_if_full = false) {
+        std::unique_lock<std::mutex> lock(mutex_);
 
-        if (state_ != State::kRunning)
+        if (aborted_ || eof_)
             return false;
 
         if (queue_.size() >= max_size_) {
             if (!drop_old_if_full)
                 return false;
-            queue_.pop();
+            queue_.pop(); // 丢弃最旧
         }
-
         bool was_empty = queue_.empty();
         queue_.push(std::move(value));
+
+        lock.unlock();
 
         if (was_empty) {
             not_empty_cv_.notify_one();
@@ -110,57 +117,48 @@ public:
      * @brief 阻塞式弹出
      * @return true 成功获取数据; false 队列被强制终止，应该立刻退出线程。
      */
-    bool Pop(T& value) {
+    bool pop(T& value) {
         std::unique_lock<std::mutex> lock(mutex_);
-        not_empty_cv_.wait(lock, [this]() { return !queue_.empty() || state_ != State::kRunning; });
+        not_empty_cv_.wait(lock, [this]() { return !queue_.empty() || aborted_ || eof_; });
 
-        // Abort State
-        if (state_ == State::kAborted) {
+        if (aborted_) {
             return false;
         }
 
-        // Draining State 消费完剩下的再推出
-        if (state_ == State::kDraining && queue_.empty()) {
+        // Draining State 消费完剩下的再退出
+        if (eof_ && queue_.empty()) {
             return false;
         }
 
-        bool was_full = (queue_.size() == max_size_);
         value = std::move(queue_.front());
         queue_.pop();
 
-        if (was_full) {
-            not_full_cv_.notify_one();
-        }
+        lock.unlock();
 
+        not_full_cv_.notify_one();
         return true;
     }
 
-    bool TryPop(T& value) {
+    bool try_pop(T& value) {
         std::lock_guard<std::mutex> lock(mutex_);
         if (queue_.empty())
             return false;
 
-        bool was_full = (queue_.size() == max_size_);
         value = std::move(queue_.front());
         queue_.pop();
+        not_full_cv_.notify_one();
 
-        if (was_full) {
-            not_full_cv_.notify_one();
-        }
         return true;
     }
 
-    void Flush() {
+    void flush() {
         std::lock_guard<std::mutex> lock(mutex_);
-        bool was_full = (queue_.size() == max_size_);
 
         std::queue<T> empty_queue;
         std::swap(queue_, empty_queue);
 
         not_empty_cv_.notify_all();
-        if (was_full) {
-            not_full_cv_.notify_all();
-        }
+        not_full_cv_.notify_all();
     }
 
     size_t size() const {
@@ -168,19 +166,24 @@ public:
         return queue_.size();
     }
 
+    void set_eof() {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            eof_ = true;
+        }
+        not_empty_cv_.notify_all();
+        not_full_cv_.notify_all();
+    }
+
 private:
-    enum class State {
-        kRunning,  // 正常运行
-        kDraining, // 排空中，不再接受新包
-        kAborted   // 强制终止 Seek或Stop
-    };
     std::queue<T> queue_;
     mutable std::mutex mutex_;
-    std::condition_variable not_empty_cv_;
-    std::condition_variable not_full_cv_;
+    std::condition_variable not_empty_cv_; // 消费者
+    std::condition_variable not_full_cv_;  // 生产者
     size_t max_size_;
 
-    State state_;
+    bool aborted_ = false;
+    bool eof_ = false;
 };
 
 } // namespace my_video_player
